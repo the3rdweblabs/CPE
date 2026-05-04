@@ -84,47 +84,68 @@ This installs:
 CPE/
 ├── .github/
 │   └── workflows/
-│       ├── main.yml
-│       ├── manual-windows.yml
-│       └── manual.yml
+│       ├── main.yml                          # CI: lint + test on every push/PR
+│       ├── manual-windows.yml                # Manual CI trigger for Windows runners
+│       └── manual.yml                        # Manual CI trigger for Linux/macOS runners
 ├── .vscode/
-│   ├── extensions.json
-│   └── settings.json
+│   ├── extensions.json                       # Recommended VS Code extensions (Solidity, ESLint, Prettier)
+│   └── settings.json                         # Workspace formatting & editor settings
 ├── contracts/
-│   ├── AuditLogger.sol
-│   ├── ConfidentialPolicyEngine.sol
-│   ├── ConfidentialVault.sol
-│   ├── CPEGateway.sol
-│   ├── PolicyRegistry.sol
+│   ├── AuditLogger.sol                       # On-chain audit log for policy lifecycle events
+│   ├── ConfidentialPolicyEngine.sol          # Core engine: stores & evaluates encrypted policies in ciphertext
+│   ├── ConfidentialVault.sol                 # Example downstream contract: ETH vault gated by CPE policy
+│   ├── CPEGateway.sol                        # Public-facing gateway; abstracts handle materialisation from callers
+│   ├── PolicyRegistry.sol                    # Registry mapping policy IDs to metadata (off-chain indexing aid)
+│   ├── README.md                             # Contracts-level technical reference and NatSpec guide
 │   ├── interfaces/
-│   │   ├── ICPEGateway.sol
-│   │   └── IConfidentialPolicyEngine.sol
-│   └── libraries/
-│       ├── CPEErrors.sol
-│       └── CPERoles.sol
+│   │   ├── ICPEGateway.sol                   # Interface for CPEGateway (used by integrating contracts)
+│   │   └── IConfidentialPolicyEngine.sol     # Interface for ConfidentialPolicyEngine (used internally & by TestHelper)
+│   ├── libraries/
+│   │   ├── CPEErrors.sol                     # Shared custom error definitions (saves gas vs. revert strings)
+│   │   └── CPERoles.sol                      # Role constants (POLICY_ADMIN, AUDITOR, etc.)
+│   └── mocks/
+│       └── TestHelper.sol                    # Test-only fixture: materialises FHE handles via FHE.fromExternal()
+│                                             # and forwards euint64 to the engine; emits Evaluated(ebool) so JS
+│                                             # tests can inspect results without ACL-guarded storage reads.
+│                                             # Inherits ZamaEthereumConfig (required for FHEVM infra addresses).
 ├── deploy/
-│   ├── 01_deploy_cpe.ts
-│   └── deployments.sepolia.json
+│   ├── 01_deploy_cpe.ts                      # Hardhat-deploy script: deploys all contracts and wires permissions
+│   ├── deployment.sepolia.txt                # Real terminal output from the first successful Sepolia deployment:
+│   │                                         # contract addresses, wiring steps, Etherscan verification log.
+│   │                                         # Proof-of-deployment reference — no secrets, safe to commit.
+│   └── deployments.sepolia.json              # Machine-readable address manifest consumed by tasks & scripts
+├── scripts/
+│   └── debug-wiring.ts                       # One-shot debug script: verifies CPEGateway ↔ Vault authorisation
+│                                             # on an already-deployed network (run with: npx hardhat run)
 ├── tasks/
-│   └── cpe-tasks.ts
+│   ├── accounts.ts                           # Hardhat task: prints signer addresses and balances
+│   ├── cpe-tasks.ts                          # Hardhat tasks for CPE admin operations: task:wallet,
+│   │                                         # task:create-policy, task:bind-address, task:deposit,
+│   │                                         # task:withdraw, task:freeze, task:unfreeze, task:policy-info
+│   ├── cpe-tasks.txt                         # Ordered copy-paste command guide for a full Sepolia workflow:
+│   │                                         # wallet check → deploy → create policy → bind address →
+│   │                                         # deposit → withdraw (approve & deny) → freeze/unfreeze
+│   └── cpe-tasks-completed.txt               # Real terminal session proving all tasks work on Sepolia live:
+│                                             # actual tx hashes, gas costs, and approve/deny output captured
 ├── test/
-│   └── CPE.test.ts
-├── .env.example
+│   └── CPE.test.ts                           # Full test suite (28 tests): policy creation, address binding,
+│                                             # encrypted evaluation via Vault & TestHelper, freeze/unfreeze,
+│                                             # rolling daily limits, auditor management, admin transfer
+├── .env.example                              # Template for optional .env variables (RELAYER_URL etc.)
 ├── .gitignore
 ├── .prettierignore
-├── .prettierrc.yml
-├── .solcover.js
-├── .solhint.json
-├── .solhintignore
-├── .solhintignore
-├── LICENSE
-├── README.md
-├── eslint.config.mjs
-├── gas-report.txt
-├── hardhat.config.ts
-├── package-lock.json
+├── .prettierrc.yml                           # Prettier formatting config (Solidity + TypeScript)
+├── .solcover.js                              # Solidity coverage configuration
+├── .solhint.json                             # Solidity linter rules
+├── .solhintignore                            # Files excluded from Solidity linting
+├── LICENSE                                   # GPL-3.0
+├── README.md                                 # This file
+├── eslint.config.mjs                         # ESLint config for TypeScript (scripts, tasks, tests)
+├── gas-report.txt                            # Gas usage report generated by hardhat-gas-reporter
+├── hardhat.config.ts                         # Hardhat configuration (networks, plugins, compiler settings)
 ├── package.json
-└── tsconfig.json
+├── package-lock.json
+└── tsconfig.json                             # TypeScript compiler config (moduleResolution: bundler)
 ```
 
 ---
@@ -275,45 +296,96 @@ npx hardhat console --network sepolia
 npm run deploy:sepolia
 ```
 
-Expected output (example):
+Real output from the first Sepolia deployment:
 
 ```
-═══════════════════════════════════════════════
-  Confidential Policy Engine - Deployment
-═══════════════════════════════════════════════
-  Network:  sepolia
-  Deployer: 0xYourAddress...
-  Balance:  0.5 ETH
-═══════════════════════════════════════════════
+═══════════════════════════════════════════════════════
+  Confidential Policy Engine - Full Deployment
+═══════════════════════════════════════════════════════
+  Network:     sepolia
+  Deployer:    0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Balance:     0.07500871631430139 ETH
+  KMS Gateway: 0x9D6891A6240D6130c54ae243d8005063D05fE14b
+═══════════════════════════════════════════════════════
 
-1. Deploying PolicyRegistry...
-   ✓ PolicyRegistry deployed at: 0x...
+1/5 Deploying PolicyRegistry...
+    ✓ 0x78Ea3E74250041cDe8A5b4282Ab159474731D94A
 
-2. Deploying AuditLogger...
-   ✓ AuditLogger deployed at: 0x...
+2/5 Deploying AuditLogger...
+    ✓ 0x4Ce3cddA2E3322f62bF4301ea945e7A32AC1a95E
 
-3. Deploying ConfidentialPolicyEngine...
-   ✓ ConfidentialPolicyEngine deployed at: 0x...
+3/5 Deploying ConfidentialPolicyEngine...
+    ✓ 0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F
 
-4. Deploying CPEGateway...
-   ✓ CPEGateway deployed at: 0x...
+4/5 Deploying CPEGateway...
+    ✓ 0x7EA6400314caA86F27d83970aB77d23f3dEC6A24
 
-5. Deploying ConfidentialVault...
-   ✓ ConfidentialVault deployed at: 0x...
+5/5 Deploying ConfidentialVault...
+    ✓ 0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C
 
-6. Wiring permissions...
-   ✓ CPE.authorizeCaller(gateway)
-   ✓ Gateway.registerCaller(vault)
+── Wiring contracts...
 
-Saved: ./deploy/deployments.sepolia.json
-═══════════════════════════════════════════════
+    ✓ Registry.authorizeWriter(CPE)
+    ✓ AuditLogger.authorizeLogger(CPE)
+    ✓ CPE.authorizeCaller(Gateway)
+    ✓ Gateway.registerCaller(Vault, "ConfidentialVault v1")
+
+═══════════════════════════════════════════════════════
+  Deployment Complete
+═══════════════════════════════════════════════════════
+  PolicyRegistry            : 0x78Ea3E74250041cDe8A5b4282Ab159474731D94A
+  AuditLogger               : 0x4Ce3cddA2E3322f62bF4301ea945e7A32AC1a95E
+  ConfidentialPolicyEngine  : 0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F
+  CPEGateway                : 0x7EA6400314caA86F27d83970aB77d23f3dEC6A24
+  ConfidentialVault         : 0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C
+
+  Saved: ./deploy/deployments.sepolia.json
+═══════════════════════════════════════════════════════
 ```
 
-Addresses are saved to `deploy/deployments.sepolia.json`.
+Addresses are saved to `deploy/deployments.sepolia.json`. The full terminal log (including Etherscan verification output) is in [`deploy/deployment.sepolia.txt`](deploy/deployment.sepolia.txt).
 
 ---
 
-## Step 8 - Interact On-Chain (Sepolia)
+## Step 8 - Hardhat Task CLI (Quickest Path)
+
+All post-deployment interactions can be done without opening the Hardhat console. The built-in tasks cover the complete admin + user workflow. The ordered command sequence lives in [`tasks/cpe-tasks.txt`](tasks/cpe-tasks.txt):
+
+```bash
+# 1. Check your wallet balance and signer address
+npx hardhat --network sepolia task:wallet
+
+# 2. Create a policy (real FHE encryption, sent to Sepolia)
+npx hardhat --network sepolia task:create-policy --name "my-first-policy"
+
+# 3. Bind your wallet to the policy
+npx hardhat --network sepolia task:bind-address --name "my-first-policy"
+
+# 4. Confirm the policy is live
+npx hardhat --network sepolia task:policy-info --name "my-first-policy"
+
+# 5. Deposit ETH into the vault
+npx hardhat --network sepolia task:deposit --amount "0.05"
+
+# 6. Withdraw within limits (perTxLimit = 1 ETH) → APPROVED
+npx hardhat --network sepolia task:withdraw --amount "0.01"
+
+# 7. Withdraw over limit → DENIED (FHE.req() reverts silently)
+npx hardhat --network sepolia task:withdraw --amount "2"
+
+# 8. Test the silent freeze / unfreeze cycle
+npx hardhat --network sepolia task:freeze   --name "my-first-policy"
+npx hardhat --network sepolia task:withdraw --amount "0.01"   # denied
+npx hardhat --network sepolia task:unfreeze --name "my-first-policy"
+npx hardhat --network sepolia task:withdraw --amount "0.01"   # passes again
+```
+
+A real end-to-end terminal session with tx hashes and gas costs is in [`tasks/cpe-tasks-completed.txt`](tasks/cpe-tasks-completed.txt).
+
+---
+
+## Step 9 - Interact On-Chain via Console (Advanced)
+
 
 After deployment, here's the full admin workflow using the Hardhat console.
 
