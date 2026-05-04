@@ -11,9 +11,7 @@
     "lib": [
       "es2022"
     ], // get error cause (ErrorOptions)
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "ignoreDeprecations": "6.0",
+    "moduleResolution": "bundler",
     "noImplicitAny": true,
     "removeComments": true,
     "resolveJsonModule": true,
@@ -32,6 +30,7 @@
     "tasks/**/*",
     "test/**/*",
     "deploy/**/*",
-    "types/"
+    "types/",
+    "scripts/**/*"
   ]
 }

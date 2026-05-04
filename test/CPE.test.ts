@@ -24,6 +24,8 @@ describe("ConfidentialPolicyEngine", function () {
   // ─────────────────────────────────────────
   let cpe: ConfidentialPolicyEngine;
   let vault: ConfidentialVault;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let helper: any;
 
   let owner: Signer; // engine owner
   let admin: Signer; // policy admin
@@ -46,8 +48,14 @@ describe("ConfidentialPolicyEngine", function () {
     vault = (await VaultFactory.connect(owner).deploy(await cpe.getAddress())) as ConfidentialVault;
     await vault.waitForDeployment();
 
-    // Authorize vault as CPE caller
+    // Deploy TestHelper
+    const HelperFactory = await ethers.getContractFactory("TestHelper");
+    helper = await HelperFactory.connect(owner).deploy(await cpe.getAddress());
+    await helper.waitForDeployment();
+
+    // Authorize vault and helper as CPE callers
     await cpe.connect(owner).authorizeCaller(await vault.getAddress());
+    await cpe.connect(owner).authorizeCaller(await helper.getAddress());
     // Also authorize owner for direct encrypted evaluation assertions in tests
     await cpe.connect(owner).authorizeCaller(await owner.getAddress());
 
@@ -104,9 +112,8 @@ describe("ConfidentialPolicyEngine", function () {
   /**
    * Helper: encrypt a single uint64 amount for a vault withdrawal.
    */
-  async function encryptAmountForSender(senderAddr: string, amount: bigint) {
-    const cpeAddr = await cpe.getAddress();
-    const input = fhevm.createEncryptedInput(cpeAddr, senderAddr);
+  async function encryptAmountForSender(contractAddr: string, senderAddr: string, amount: bigint) {
+    const input = fhevm.createEncryptedInput(contractAddr, senderAddr);
     input.add64(amount);
     const encrypted = await input.encrypt();
 
@@ -234,15 +241,32 @@ describe("ConfidentialPolicyEngine", function () {
       await vault.connect(subject).deposit({ value: ethers.parseEther("10") });
     });
 
+    /**
+     * Helper: send a transaction via TestHelper.evaluate() and extract the
+     * ebool handle from the Evaluated event emitted by the helper contract.
+     */
+    async function callEvaluate(subjectAddr: string, amountWei: bigint) {
+      const { encAmount, inputProof } = await encryptAmountForSender(
+        await helper.getAddress(),
+        await owner.getAddress(),
+        amountWei,
+      );
+      const tx = await helper.evaluate(subjectAddr, encAmount, inputProof);
+      const receipt = await tx.wait();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const log = receipt.logs.find((l: any) => l.fragment && l.fragment.name === "Evaluated");
+      return log.args[0]; // the ebool handle
+    }
+
     it("should approve a withdrawal within policy limits", async function () {
       // 0.5 ETH — within 1 ETH per-tx limit
       const { encAmount, inputProof } = await encryptAmountForSender(
         await vault.getAddress(),
+        await subject.getAddress(),
         ethers.parseEther("0.5"),
       );
 
       const balanceBefore = await ethers.provider.getBalance(await subject.getAddress());
-
       const tx = await vault.connect(subject).withdraw(encAmount, inputProof, ethers.parseEther("0.5"));
       await tx.wait();
 
@@ -253,120 +277,59 @@ describe("ConfidentialPolicyEngine", function () {
 
     it("should deny a withdrawal exceeding per-tx limit", async function () {
       // 2 ETH — exceeds 1 ETH per-tx limit
-      const { encAmount, inputProof } = await encryptAmountForSender(await owner.getAddress(), ethers.parseEther("2"));
-
-      const approvedResult = await cpe.evaluateTransaction.staticCallResult(
-        await subject.getAddress(),
-        encAmount,
-        inputProof,
-      );
-      const approved = approvedResult[0];
-      expect(approved).to.be.a("string");
+      const approved = await callEvaluate(await subject.getAddress(), ethers.parseEther("2"));
+      expect(await fhevm.debugger.decryptEbool(approved)).to.equal(false);
     });
 
     it("should deny withdrawal from address with no policy", async function () {
-      // Deposit for attacker first
+      // attacker has no policy bound → should get false
       await vault.connect(attacker).deposit({ value: ethers.parseEther("1") });
-
-      const { encAmount, inputProof } = await encryptAmountForSender(
-        await owner.getAddress(),
-        ethers.parseEther("0.1"),
-      );
-
-      const approvedResult = await cpe.evaluateTransaction.staticCallResult(
-        await attacker.getAddress(),
-        encAmount,
-        inputProof,
-      );
-      const approved = approvedResult[0];
+      const approved = await callEvaluate(await attacker.getAddress(), ethers.parseEther("0.1"));
       expect(await fhevm.debugger.decryptEbool(approved)).to.equal(false);
     });
 
     it("should deny withdrawal from frozen policy", async function () {
-      // Freeze the policy
       await cpe.connect(admin).freezePolicy(POLICY_ID);
 
-      const { encAmount, inputProof } = await encryptAmountForSender(
-        await owner.getAddress(),
-        ethers.parseEther("0.1"),
-      );
-
-      const approvedResult = await cpe.evaluateTransaction.staticCallResult(
-        await subject.getAddress(),
-        encAmount,
-        inputProof,
-      );
-      const approved = approvedResult[0];
-      expect(approved).to.be.a("string");
+      const approved = await callEvaluate(await subject.getAddress(), ethers.parseEther("0.1"));
+      expect(await fhevm.debugger.decryptEbool(approved)).to.equal(false);
 
       // Unfreeze for subsequent tests
       await cpe.connect(admin).unfreezePolicy(POLICY_ID);
     });
 
     it("should track rolling daily usage and enforce daily limit", async function () {
-      // After previous test: 0.5 ETH used today (daily limit = 5 ETH)
-      // Try 4.9 ETH — should fail (0.5 + 4.9 > 5 ETH daily limit)
+      // Starting state: 0.5 ETH used today (from the vault.withdraw in Test 1).
+      // Daily limit = 5 ETH. Per-tx limit = 1 ETH.
+      //
+      // callEvaluate() routes through TestHelper → CPE.evaluateTransaction().
+      // When CPE approves a tx (result = true), it immediately advances dailyUsed
+      // via FHE.select(). So each passing callEvaluate drains the daily budget —
+      // no need for a real vault.withdraw to update the counter.
 
-      // Fund subject more
       await vault.connect(subject).deposit({ value: ethers.parseEther("10") });
 
-      // First try 1 ETH (should pass — within per-tx AND daily remaining)
-      const { encAmount: e1, inputProof: p1 } = await encryptAmountForSender(
-        await owner.getAddress(),
-        ethers.parseEther("1"),
-      );
-      let approvedResult = await cpe.evaluateTransaction.staticCallResult(await subject.getAddress(), e1, p1);
-      let approved = approvedResult[0];
-      expect(approved).to.be.a("string");
-      const txApply1 = await cpe.connect(owner).evaluateTransaction(await subject.getAddress(), e1, p1);
-      await txApply1.wait();
+      // a1: 0.5 + 1 = 1.5 ETH ≤ 5 ETH → pass
+      const a1 = await callEvaluate(await subject.getAddress(), ethers.parseEther("1"));
+      expect(await fhevm.debugger.decryptEbool(a1)).to.equal(true);
 
-      // Second 1 ETH pass
-      const { encAmount: e2, inputProof: p2 } = await encryptAmountForSender(
-        await owner.getAddress(),
-        ethers.parseEther("1"),
-      );
-      approvedResult = await cpe.evaluateTransaction.staticCallResult(await subject.getAddress(), e2, p2);
-      approved = approvedResult[0];
-      expect(approved).to.be.a("string");
-      const txApply2 = await cpe.connect(owner).evaluateTransaction(await subject.getAddress(), e2, p2);
-      await txApply2.wait();
+      // a2: 1.5 + 1 = 2.5 ETH ≤ 5 ETH → pass
+      const a2 = await callEvaluate(await subject.getAddress(), ethers.parseEther("1"));
+      expect(await fhevm.debugger.decryptEbool(a2)).to.equal(true);
 
-      // Third 1 ETH pass
-      const { encAmount: e3, inputProof: p3 } = await encryptAmountForSender(
-        await owner.getAddress(),
-        ethers.parseEther("1"),
-      );
-      approvedResult = await cpe.evaluateTransaction.staticCallResult(await subject.getAddress(), e3, p3);
-      approved = approvedResult[0];
-      expect(approved).to.be.a("string");
-      const txApply3 = await cpe.connect(owner).evaluateTransaction(await subject.getAddress(), e3, p3);
-      await txApply3.wait();
+      // a3: 2.5 + 1 = 3.5 ETH ≤ 5 ETH → pass
+      const a3 = await callEvaluate(await subject.getAddress(), ethers.parseEther("1"));
+      expect(await fhevm.debugger.decryptEbool(a3)).to.equal(true);
 
-      // Now at 3.5 ETH used (0.5 + 1 + 1 + 1). Remaining = 1.5 ETH.
-      // Trying 1 ETH again should still pass.
-      const { encAmount: e4, inputProof: p4 } = await encryptAmountForSender(
-        await owner.getAddress(),
-        ethers.parseEther("1"),
-      );
-      approvedResult = await cpe.evaluateTransaction.staticCallResult(await subject.getAddress(), e4, p4);
-      approved = approvedResult[0];
-      expect(approved).to.be.a("string");
-      const txApply4 = await cpe.connect(owner).evaluateTransaction(await subject.getAddress(), e4, p4);
-      await txApply4.wait();
+      // a4: 3.5 + 1 = 4.5 ETH ≤ 5 ETH → pass
+      const a4 = await callEvaluate(await subject.getAddress(), ethers.parseEther("1"));
+      expect(await fhevm.debugger.decryptEbool(a4)).to.equal(true);
 
-      // Now 4.5 ETH used. Remaining = 0.5 ETH.
-      // Trying 1 ETH should FAIL (exceeds daily limit)
-      const { encAmount: e5, inputProof: p5 } = await encryptAmountForSender(
-        await owner.getAddress(),
-        ethers.parseEther("1"),
-      );
-      approvedResult = await cpe.evaluateTransaction.staticCallResult(await subject.getAddress(), e5, p5);
-      approved = approvedResult[0];
-      expect(approved).to.be.a("string");
+      // a5: 4.5 + 1 = 5.5 ETH > 5 ETH → DENY (daily limit exceeded)
+      const a5 = await callEvaluate(await subject.getAddress(), ethers.parseEther("1"));
+      expect(await fhevm.debugger.decryptEbool(a5)).to.equal(false);
     });
   });
-
   // ─────────────────────────────────────────
   // TEST: FREEZE / UNFREEZE
   // ─────────────────────────────────────────
@@ -511,7 +474,7 @@ describe("ConfidentialPolicyEngine", function () {
       await expectTxFailure(
         cpe
           .connect(attacker)
-          .evaluateTransaction(await subject.getAddress(), encrypted.handles[0], encrypted.inputProof),
+          .evaluateTransaction(await subject.getAddress(), encrypted.handles[0]),
       );
     });
 

@@ -8,7 +8,7 @@ async function main() {
 
   const gateway = await ethers.getContractAt("CPEGateway", deployments.contracts.CPEGateway);
   const vaultAddr = deployments.contracts.ConfidentialVault;
-  const gatewayAddr = deployments.contracts.CPEGateway;
+
   console.log("Checking Wiring...");
 
   const isActive = await gateway.isActiveCaller(vaultAddr);
