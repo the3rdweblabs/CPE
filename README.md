@@ -131,6 +131,8 @@ CPE/
 │   └── CPE.test.ts                           # Full test suite (28 tests): policy creation, address binding,
 │                                             # encrypted evaluation via Vault & TestHelper, freeze/unfreeze,
 │                                             # rolling daily limits, auditor management, admin transfer
+├── vault-dapp/                               # React + Vite frontend demo for ConfidentialVault
+│                                             # See vault-dapp/README.md for setup and usage
 ├── .env.example                              # Template for optional .env variables (RELAYER_URL etc.)
 ├── .gitignore
 ├── .prettierignore
