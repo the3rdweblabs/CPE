@@ -1,0 +1,29 @@
+# 1. Check your wallet
+npx hardhat --network sepolia task:wallet
+
+# 2. Deploy if not done yet
+npm run deploy:sepolia
+
+# 3. Create a policy (real FHE encryption against Sepolia)
+npx hardhat --network sepolia task:create-policy --name "my-first-policy"
+
+# 4. Bind your wallet to the policy
+npx hardhat --network sepolia task:bind-address --name "my-first-policy"
+
+# 5. Check it's live
+npx hardhat --network sepolia task:policy-info --name "my-first-policy"
+
+# 6. Deposit ETH into the vault
+npx hardhat --network sepolia task:deposit --amount "0.05"
+
+# 7. Withdraw within limits (1 ETH perTxLimit) — should PASS
+npx hardhat --network sepolia task:withdraw --amount "0.01"
+
+# 8. Withdraw over limits — should DENY
+npx hardhat --network sepolia task:withdraw --amount "2"
+
+# 9. Test the silent freeze
+npx hardhat --network sepolia task:freeze --name "my-first-policy"
+npx hardhat --network sepolia task:withdraw --amount "0.01"   # denied
+npx hardhat --network sepolia task:unfreeze --name "my-first-policy"
+npx hardhat --network sepolia task:withdraw --amount "0.01"   # passes again

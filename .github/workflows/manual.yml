@@ -1,0 +1,44 @@
+name: Manual Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      SOLIDITY_COVERAGE: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --progress=false
+
+      - name: Prettier check (non-fatal)
+        run: npm run prettier:check
+        continue-on-error: true
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Run tests
+        run: npm test
+
+      - name: Coverage
+        run: npm run coverage

@@ -1,0 +1,69 @@
+
+CPE main  ? ❯ npm run compile
+
+> confidential-policy-engine@1.0.0 compile
+> cross-env TS_NODE_TRANSPILE_ONLY=true hardhat compile
+
+Generating typings for: 1 artifacts in dir: types for target: ethers-v6
+Successfully generated 28 typings!
+Compiled 1 Solidity file successfully (evm target: cancun).
+
+> confidential-policy-engine@1.0.0 postcompile
+> npm run typechain
+
+
+> confidential-policy-engine@1.0.0 typechain
+> cross-env TS_NODE_TRANSPILE_ONLY=true hardhat typechain
+
+
+CPE main  ? ❯ npm run deploy:sepolia
+
+> confidential-policy-engine@1.0.0 deploy:sepolia
+> hardhat run deploy/01_deploy_cpe.ts --network sepolia
+
+Compiled 5 Solidity files successfully (evm target: cancun).
+
+═══════════════════════════════════════════════════════
+  Confidential Policy Engine - Full Deployment
+═══════════════════════════════════════════════════════
+  Network:     sepolia
+  Deployer:    0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Balance:     0.131081275630112722 ETH
+  KMS Gateway: 0x9D6891A6240D6130c54ae243d8005063D05fE14b
+═══════════════════════════════════════════════════════
+
+1/5 Deploying PolicyRegistry...
+    ✓ 0x08b5FE7886bd26d5ED4FEb368391B6eCFA7A20b0
+
+2/5 Deploying AuditLogger...
+    ✓ 0xB248a4933Afa024BBbD155d8cC35c3554c7Bc3de
+
+3/5 Deploying ConfidentialPolicyEngine...
+    ✓ 0xc8f8FfBc3A7AB5A84E4348b8eB3E7616707Cc2ac
+
+4/5 Deploying CPEGateway...
+    ✓ 0x9e7F48CC523aed2bdf4141A173b67B26125e85e2
+
+5/5 Deploying ConfidentialVault...
+    ✓ 0xD982eD5065028d59B17b6fA009442E55B3451a1F
+
+── Wiring contracts...
+
+    ✓ Registry.authorizeWriter(CPE)
+    ✓ AuditLogger.authorizeLogger(CPE)
+    ✓ CPE.authorizeCaller(Gateway)
+    ✓ Gateway.registerCaller(Vault, "ConfidentialVault v1")
+
+═══════════════════════════════════════════════════════
+  Deployment Complete
+═══════════════════════════════════════════════════════
+  PolicyRegistry            : 0x08b5FE7886bd26d5ED4FEb368391B6eCFA7A20b0
+  AuditLogger               : 0xB248a4933Afa024BBbD155d8cC35c3554c7Bc3de
+  ConfidentialPolicyEngine  : 0xc8f8FfBc3A7AB5A84E4348b8eB3E7616707Cc2ac
+  CPEGateway                : 0x9e7F48CC523aed2bdf4141A173b67B26125e85e2
+  ConfidentialVault         : 0xD982eD5065028d59B17b6fA009442E55B3451a1F
+
+  Saved: ./deploy/deployments.sepolia.json
+═══════════════════════════════════════════════════════
+
+CPE main  ? ❯ 
