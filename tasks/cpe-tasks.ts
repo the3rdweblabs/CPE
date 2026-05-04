@@ -240,9 +240,9 @@ task("task:withdraw", "Attempt a policy-gated withdrawal from the vault")
 
     // IMPORTANT:
     // Encrypt for the contract that verifies the proof / materializes the handle.
-    // That is the CPE (evaluateTransaction), NOT the Vault.
-    console.log("Encrypting withdrawal amount (for CPE verifier)...");
-    const input = fhevm.createEncryptedInput(cpeAddr, signer.address);
+    // Since the Vault calls FHE.fromExternal, we encrypt for the Vault.
+    console.log("Encrypting withdrawal amount (for Vault verifier)...");
+    const input = fhevm.createEncryptedInput(vaultAddr, signer.address);
     input.add64(clearAmountGwei); // encrypted in Gwei (matches policy unit)
     const enc = await input.encrypt();
 
@@ -252,7 +252,7 @@ task("task:withdraw", "Attempt a policy-gated withdrawal from the vault")
         enc.handles[0],
         enc.inputProof,
         clearAmountWei, // actual ETH transfer still in Wei
-        { gasLimit: 500_000 },
+        { gasLimit: 3_000_000 },
       );
       const receipt = await tx.wait();
       console.log("✓ Withdrawal APPROVED — policy passed!");

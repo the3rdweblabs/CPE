@@ -15,14 +15,12 @@ interface ICPEGateway {
     /**
      * @notice Evaluate whether a transaction is permitted for a subject address.
      * @param subject     The wallet address whose policy is being checked
-     * @param encAmount   Encrypted transaction amount (client-side encrypted)
-     * @param inputProof  ZKPoK proof for the encrypted amount
+     * @param amount      Encrypted transaction amount (materialised handle)
      * @return approved   Encrypted boolean result — use with FHE.req()
      */
     function evaluateTransaction(
         address subject,
-        externalEuint64 encAmount,
-        bytes calldata inputProof
+        euint64 amount
     ) external returns (ebool approved);
 
     /**

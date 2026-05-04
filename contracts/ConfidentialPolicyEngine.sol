@@ -475,14 +475,12 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
      * @notice Evaluate whether a transaction is permitted under a subject's
      *         encrypted policy. All checks are performed on encrypted handles.
      * @param subject Wallet address whose policy is evaluated
-     * @param encAmount Amount encrypted client-side with ZKPoK
-     * @param inputProof ZKPoK proof for encAmount
+     * @param amount  Materialised encrypted amount
      * @return approved Encrypted boolean - true only if all checks pass
      */
     function evaluateTransaction(
         address subject,
-        externalEuint64 encAmount,
-        bytes calldata inputProof
+        euint64 amount
     ) external onlyAuthorizedCaller returns (ebool approved) {
         bytes32 policyId = _addressPolicy[subject];
 
@@ -494,10 +492,6 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
         }
 
         ConfidentialPolicy storage p = _policies[policyId];
-
-        // Validate and materialise encrypted input
-        euint64 amount = asEuint64(encAmount, inputProof);
-        FHE.allowThis(amount);
 
         // Reset rolling counters when time windows expire. Timestamps are
         // plaintext and safe to compare against `block.timestamp`.

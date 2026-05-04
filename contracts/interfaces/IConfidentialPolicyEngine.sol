@@ -11,8 +11,7 @@ import "@fhevm/solidity/lib/FHE.sol";
 interface IConfidentialPolicyEngine {
     function evaluateTransaction(
         address subject,
-        externalEuint64 encAmount,
-        bytes calldata inputProof
+        euint64 amount
     ) external returns (ebool approved);
 
     function evaluateCompliance(address subject, uint8 requiredTier) external returns (ebool meetsCompliance);

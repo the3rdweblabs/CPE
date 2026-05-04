@@ -185,8 +185,7 @@ contract CPEGateway is ZamaEthereumConfig, ICPEGateway {
      *      same transaction via FHE.allowTransient() grants.
      *
      * @param subject     Wallet being evaluated
-     * @param encAmount   Encrypted transaction amount (encrypted by user client-side)
-     * @param inputProof  ZKPoK for the encrypted amount
+     * @param amount      Encrypted transaction amount
      * @return approved   Encrypted boolean — use with FHE.req() in caller
      */
     // function evaluateTransaction(
@@ -223,11 +222,13 @@ contract CPEGateway is ZamaEthereumConfig, ICPEGateway {
     // }
     function evaluateTransaction(
         address subject,
-        externalEuint64 encAmount,
-        bytes calldata inputProof
+        euint64 amount
     ) external override onlyRegisteredCaller returns (ebool approved) {
-        // Typed call into CPE (avoids encodeWithSignature selector/type mismatches)
-        approved = IConfidentialPolicyEngine(policyEngine).evaluateTransaction(subject, encAmount, inputProof);
+        // Grant transient access to CPE so it can compute on it
+        FHE.allowTransient(amount, policyEngine);
+
+        // Typed call into CPE
+        approved = IConfidentialPolicyEngine(policyEngine).evaluateTransaction(subject, amount);
 
         // Grant transient access to the downstream caller (e.g. Vault) for this tx
         FHE.allowTransient(approved, msg.sender);

@@ -61,12 +61,15 @@ contract ConfidentialVault is ZamaEthereumConfig {
     ) external {
         require(balances[msg.sender] >= clearAmount, "Insufficient balance");
 
-        // - Step 1: Ask CPE if this withdrawal is allowed -
-        // evaluateTransaction checks all encrypted policy rules and returns
-        // an encrypted boolean. All comparisons happen in ciphertext.
-        ebool approved = policyEngine.evaluateTransaction(msg.sender, encAmount, inputProof);
+        // - Step 1: Materialise the handle and grant access -
+        euint64 amount = FHE.fromExternal(encAmount, inputProof);
+        FHE.allowThis(amount);
+        FHE.allowTransient(amount, address(policyEngine));
 
-        // - Step 2: FHE.req() — reverts if approved == encrypted false -
+        // - Step 2: Ask CPE if this withdrawal is allowed -
+        ebool approved = policyEngine.evaluateTransaction(msg.sender, amount);
+
+        // - Step 3: FHE.req() — reverts if approved == encrypted false -
         // This is the enforcement gate. If any policy check failed,
         // the coprocessor resolves approved = false and this reverts.
         // The revert message intentionally gives no reason.

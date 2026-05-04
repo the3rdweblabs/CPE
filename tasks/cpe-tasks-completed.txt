@@ -1,0 +1,77 @@
+CPE main  ? ❯ npx hardhat task:create-policy --name my-test-policy --network sepolia
+Creating policy: my-test-policy
+PolicyId: 0x226538efcba766ed8e8f0c79df433790721854c2a7dd8fd406489c507acb76ad
+Admin: 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+Unable to simulate: contract helpers missing. Contract object keys: [ 'target', 'interface', 'runner', 'filters', 'fallback' ]
+Skipping simulation and proceeding to gas estimate / transaction.
+Estimated gas for createPolicy (provider): 1267736
+✓ Policy created!
+  Gas used: 1046970
+  Tx hash : 0x3b9b5ecbdafc2e54e57d0d13bc05593ac4b55eabe970c70db560e7f1999019ed
+  Etherscan: https://sepolia.etherscan.io/tx/0x3b9b5ecbdafc2e54e57d0d13bc05593ac4b55eabe970c70db560e7f1999019ed
+
+CPE main  ? ❯ npx hardhat task:bind-address --name my-test-policy --network sepolia
+✓ Address bound: 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA → my-test-policy
+  Tx: 0xce9a37334f0bb40c374c9baf425ec2bd6843309485aa98c889697a7fbbdf1f4a
+
+CPE main  ? ❯ npx hardhat task:deposit --amount 0.05 --network sepolia
+✓ Deposited 0.05 ETH to vault
+  Tx: 0x36441cd5da82be131cde971aaafad6c77b29c6260074b67be431e16052193305
+
+CPE main  ? ❯ npx hardhat task:withdraw --amount 0.01 --network sepolia
+Withdraw debug:
+  CPE address   : 0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F
+  Vault address : 0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C
+  Signer        : 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Amount (ETH)  : 0.01
+  Amount (Wei)  : 10000000000000000
+  Amount (Gwei) : 10000000
+Encrypting withdrawal amount (for Vault verifier)...
+Submitting withdrawal...
+✓ Withdrawal APPROVED — policy passed!
+  Gas used: 830383
+  Tx: https://sepolia.etherscan.io/tx/0xf529cef149e6e2c4431ae6b9dd24eab882e68db877ef3b0b39d510fc945c4a85
+
+CPE main  ? ❯ npx hardhat task:withdraw --amount 0.02 --network sepolia
+Withdraw debug:
+  CPE address   : 0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F
+  Vault address : 0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C
+  Signer        : 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Amount (ETH)  : 0.02
+  Amount (Wei)  : 20000000000000000
+  Amount (Gwei) : 20000000
+Encrypting withdrawal amount (for Vault verifier)...
+Submitting withdrawal...
+✓ Withdrawal APPROVED — policy passed!
+  Gas used: 776271
+  Tx: https://sepolia.etherscan.io/tx/0xec05a5532a01f0f3da00e153b1777aae28a83d82dbd3cd245a3a09b0804b9626
+
+CPE main  ? ❯ npx hardhat task:withdraw --amount 0.06 --network
+ sepolia
+Withdraw debug:
+  CPE address   : 0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F
+  Vault address : 0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C
+  Signer        : 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Amount (ETH)  : 0.06
+  Amount (Wei)  : 60000000000000000
+  Amount (Gwei) : 60000000
+Encrypting withdrawal amount (for Vault verifier)...
+Submitting withdrawal...
+✗ Withdrawal DENIED — FHE.req() reverted (policy blocked it)
+  Error: transaction execution reverted (action="sendTransaction", data=null, reason=null, invocation=null, revert=null, transaction={ "data": "", "from": "0x9582f3b9daEE79697DdDca02a411f9632E4c95eA", "to": "0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C" }, receipt={ "_type": "TransactionReceipt", "blobGasPrice": null, "blobGasUsed": null, "blockHash": "0x93483a5dc61b367dd766a0ed66ad86dd095b36dba9bc9dc71f814a57bd9f2f10", "blockNumber": 10789969, "contractAddress": null, "cumulativeGasUsed": "26334710", "from": "0x9582f3b9daEE79697DdDca02a411f9632E4c95eA", "gasPrice": "2767505", "gasUsed": "27440", "hash": "0xe131be49b046ddc543dfd469bf8a738d396e65b61ac07e0ef4284187e017939d", "index": 203, "logs": [  ], "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "root": null, "status": 0, "to": "0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C" }, code=CALL_EXCEPTION, version=6.16.0)
+
+CPE main  ? ❯ npx hardhat task:withdraw --amount 0.01 --network sepolia
+Withdraw debug:
+  CPE address   : 0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F
+  Vault address : 0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C
+  Signer        : 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Amount (ETH)  : 0.01
+  Amount (Wei)  : 10000000000000000
+  Amount (Gwei) : 10000000
+Encrypting withdrawal amount (for Vault verifier)...
+Submitting withdrawal...
+✓ Withdrawal APPROVED — policy passed!
+  Gas used: 776283
+  Tx: https://sepolia.etherscan.io/tx/0xa318c28a6d7542ba7cd597b49349707501c3e332967e2b0ca42824ba2d307927
+
+CPE main  ? ❯ 

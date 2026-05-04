@@ -2,13 +2,13 @@
   "network": "sepolia",
   "chainId": "11155111",
   "deployer": "0x9582f3b9daEE79697DdDca02a411f9632E4c95eA",
-  "timestamp": "2026-05-04T15:20:38.891Z",
+  "timestamp": "2026-05-04T18:22:15.689Z",
   "contracts": {
-    "PolicyRegistry": "0x08b5FE7886bd26d5ED4FEb368391B6eCFA7A20b0",
-    "AuditLogger": "0xB248a4933Afa024BBbD155d8cC35c3554c7Bc3de",
-    "ConfidentialPolicyEngine": "0xc8f8FfBc3A7AB5A84E4348b8eB3E7616707Cc2ac",
-    "CPEGateway": "0x9e7F48CC523aed2bdf4141A173b67B26125e85e2",
-    "ConfidentialVault": "0xD982eD5065028d59B17b6fA009442E55B3451a1F"
+    "PolicyRegistry": "0x78Ea3E74250041cDe8A5b4282Ab159474731D94A",
+    "AuditLogger": "0x4Ce3cddA2E3322f62bF4301ea945e7A32AC1a95E",
+    "ConfidentialPolicyEngine": "0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F",
+    "CPEGateway": "0x7EA6400314caA86F27d83970aB77d23f3dEC6A24",
+    "ConfidentialVault": "0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C"
   },
   "external": {
     "ZamaKMSGateway": "0x9D6891A6240D6130c54ae243d8005063D05fE14b"
