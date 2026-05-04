@@ -26,7 +26,7 @@ export interface TxRecord {
 
 function getProvider() {
   if (!window.ethereum) throw new Error('No wallet detected');
-  return new BrowserProvider(window.ethereum as Parameters<typeof BrowserProvider>[0]);
+  return new BrowserProvider(window.ethereum as ConstructorParameters<typeof BrowserProvider>[0]);
 }
 
 async function getVault(withSigner = true) {

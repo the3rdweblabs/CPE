@@ -13,7 +13,11 @@ import { useState, useEffect, useRef } from 'react';
 let _instance: unknown = null;
 let _initPromise: Promise<void> | null = null;
 
-export type FhevmInstance = unknown;
+// The SDK instance shape is provided by the relayer SDK; use `any`
+// here to allow the dapp to call documented instance methods without
+// overly strict local typings. If you prefer, replace `any` with a
+// precise interface matching `createInstance()`'s return value.
+export type FhevmInstance = any;
 
 export function useFhevm() {
   const [instance, setInstance] = useState<FhevmInstance | null>(_instance);
