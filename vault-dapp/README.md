@@ -10,7 +10,7 @@ The Vault DApp demonstrates how frontend applications can interact with smart co
 
 ### Key Interactions Displayed:
 1. **Unrestricted Deposits:** Regular ETH deposits function normally, confirming that FHE does not impede standard transaction flows where confidentiality is unnecessary.
-2. **Encrypted Withdrawals (⚡ FHE):** When a user initiates a withdrawal, the `amount` is **encrypted client-side** using `@zama-fhe/relayer-sdk` before the transaction is even sent to the network. The `ConfidentialVault` contract validates this encrypted amount against the user's bound policy limits—all in ciphertext.
+2. **Encrypted Withdrawals (⚡ FHE):** When a user initiates a withdrawal, the `amount` is **encrypted client-side** using `@zama-fhe/relayer-sdk` before the transaction is even sent to the network. The `ConfidentialVault` contract validates this encrypted amount against the user's bound policy limits-all in ciphertext.
 3. **Compliant Transfers:** Vault balances can be transferred based on compliance tier gating, without exposing the user's actual KYC/Compliance tier on-chain.
 4. **Policy Admin Controls:** Authorized admins can freeze or unfreeze policies. Crucially, this state update is an encrypted boolean operation, making it indistinguishable from any other state write on the blockchain.
 
