@@ -1,73 +1,65 @@
-# React + TypeScript + Vite
+# ConfidentialVault | CPE Demo DApp
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the interactive frontend demonstration for the **Confidential Policy Engine (CPE)** and its sample downstream contract, **ConfidentialVault**, built on Zama's FHEVM. 
 
-Currently, two official plugins are available:
+You can view the live demo here: [https://cpengine.vercel.app/](https://cpengine.vercel.app/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Overview
 
-## React Compiler
+The Vault DApp demonstrates how frontend applications can interact with smart contracts that utilize Fully Homomorphic Encryption (FHE) without exposing sensitive data on-chain or compromising the user experience.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Key Interactions Displayed:
+1. **Unrestricted Deposits:** Regular ETH deposits function normally, confirming that FHE does not impede standard transaction flows where confidentiality is unnecessary.
+2. **Encrypted Withdrawals (⚡ FHE):** When a user initiates a withdrawal, the `amount` is **encrypted client-side** using `@zama-fhe/relayer-sdk` before the transaction is even sent to the network. The `ConfidentialVault` contract validates this encrypted amount against the user's bound policy limits—all in ciphertext.
+3. **Compliant Transfers:** Vault balances can be transferred based on compliance tier gating, without exposing the user's actual KYC/Compliance tier on-chain.
+4. **Policy Admin Controls:** Authorized admins can freeze or unfreeze policies. Crucially, this state update is an encrypted boolean operation, making it indistinguishable from any other state write on the blockchain.
 
-## Expanding the ESLint configuration
+## Getting Started Locally
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
+- Node.js & npm (v18+ recommended)
+- A WalletConnect Project ID (Free from [WalletConnect Cloud](https://cloud.walletconnect.com/))
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1. Install Dependencies
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 2. Configure Environment Variables
+Copy the template environment file:
+```bash
+cp .env.example .env
 ```
+Open `.env` and paste your WalletConnect Project ID:
+```env
+VITE_WALLETCONNECT_PROJECT_ID=your_project_id_here
+```
+> **Note:** The contract addresses for the Sepolia deployment are hardcoded as fallbacks in `src/contracts/addresses.ts`. You do not need to provide them in `.env` unless you wish to override them with your own local or testnet deployments.
+
+### 3. Run the Development Server
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:5173/`.
+
+## Architecture & Integration Details
+
+This project is built using:
+- **Vite + React + TypeScript**
+- **Wagmi & Viem** for Ethereum interactions
+- **RainbowKit** for seamless wallet connection
+- **@zama-fhe/relayer-sdk** for client-side FHE encryption and KMS interactions
+
+### FHE Client-Side Encryption Workflow
+To encrypt data client-side before sending it to the Vault, the application utilizes the Zama Relayer SDK. You can see this implemented in `src/hooks/useVault.ts`:
+
+1. **Initialize SDK:** WASM is loaded asynchronously.
+2. **Create Instance:** An `FhevmInstance` is created using the wallet's EIP-1193 provider.
+3. **Encrypt Input:**
+   ```typescript
+   const input = fhevmInstance.createEncryptedInput(vaultAddress, userAddress);
+   input.add64(amountGwei);
+   const enc = await input.encrypt();
+   ```
+4. **Submit Transaction:** The resulting `handles` and `inputProof` are sent in the standard `ethers.js` contract call.
