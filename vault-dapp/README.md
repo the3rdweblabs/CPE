@@ -11,8 +11,10 @@ The Vault DApp demonstrates how frontend applications can interact with smart co
 ### Key Interactions Displayed:
 1. **Unrestricted Deposits:** Regular ETH deposits function normally, confirming that FHE does not impede standard transaction flows where confidentiality is unnecessary.
 2. **Encrypted Withdrawals (⚡ FHE):** When a user initiates a withdrawal, the `amount` is **encrypted client-side** using `@zama-fhe/relayer-sdk` before the transaction is even sent to the network. The `ConfidentialVault` contract validates this encrypted amount against the user's bound policy limits-all in ciphertext.
-3. **Compliant Transfers:** Vault balances can be transferred based on compliance tier gating, without exposing the user's actual KYC/Compliance tier on-chain.
-4. **Policy Admin Controls:** Authorized admins can freeze or unfreeze policies. Crucially, this state update is an encrypted boolean operation, making it indistinguishable from any other state write on the blockchain.
+3. **Shared DAO Treasury Pools:** Users can deposit into and withdraw privately from a shared corporate pool. A member's personal FHE policy on-chain determines their private spending limits.
+4. **Institutional Auto-Discovery:** Automated registry scanning detects and compiles all DAOs, policies, and roles (member/admin) bound to the user's address.
+5. **On-Demand Institution Deployment:** Members can deploy newly created confidential institutions/DAOs directly from the dashboard.
+6. **Protocol Health Diagnostics:** Real-time on-chain verification verifying registry authorization, caller logging permissions, and active gateway trust statuses.
 
 ## Getting Started Locally
 
@@ -30,9 +32,10 @@ Copy the template environment file:
 ```bash
 cp .env.example .env
 ```
-Open `.env` and paste your WalletConnect Project ID:
+Open `.env` and configure your WalletConnect Project ID and active network:
 ```env
 VITE_WALLETCONNECT_PROJECT_ID=your_project_id_here
+VITE_NETWORK=sepolia  # Toggle between 'sepolia' or 'mainnet'
 ```
 > **Note:** The contract addresses for the Sepolia deployment are hardcoded as fallbacks in `src/contracts/addresses.ts`. You do not need to provide them in `.env` unless you wish to override them with your own local or testnet deployments.
 

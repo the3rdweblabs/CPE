@@ -79,6 +79,69 @@ export const VAULT_ABI = [
   },
 ] as const;
 
+export const DAO_ABI = [
+  // State-changing
+  {
+    name: 'deposit',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [],
+    outputs: [],
+  },
+  {
+    name: 'withdraw',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'encAmount',   type: 'bytes32' },
+      { name: 'inputProof',  type: 'bytes'   },
+      { name: 'clearAmount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'isMember',
+    type: 'function',
+    stateMutability: 'view',
+    inputs:  [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'owner',
+    type: 'function',
+    stateMutability: 'view',
+    inputs:  [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  // Views
+  {
+    name: 'treasuryBalance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs:  [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  // Events
+  {
+    name: 'Deposited',
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { indexed: true,  name: 'user',   type: 'address' },
+      { indexed: false, name: 'amount', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'WithdrawalApproved',
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { indexed: true,  name: 'user',   type: 'address' },
+      { indexed: false, name: 'amount', type: 'uint256' },
+    ],
+  },
+] as const;
+
 export const CPE_ABI = [
   // Views
   {
@@ -144,6 +207,21 @@ export const CPE_ABI = [
     outputs: [],
   },
   {
+    name: 'createPolicy',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'policyId',           type: 'bytes32' },
+      { name: 'encPerTxLimit',      type: 'bytes32' },
+      { name: 'encDailyLimit',      type: 'bytes32' },
+      { name: 'encMonthlyLimit',    type: 'bytes32' },
+      { name: 'encRiskTier',        type: 'bytes32' },
+      { name: 'encComplianceTier',  type: 'bytes32' },
+      { name: 'inputProof',         type: 'bytes'   },
+    ],
+    outputs: [],
+  },
+  {
     name: 'unbindAddress',
     type: 'function',
     stateMutability: 'nonpayable',
@@ -169,5 +247,59 @@ export const CPE_ABI = [
       { indexed: true,  name: 'policyId', type: 'bytes32' },
       { indexed: false, name: 'ts',       type: 'uint256' },
     ],
+  },
+] as const;
+
+export const DAO_FACTORY_ABI = [
+  {
+    name: 'createDAO',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'gateway', type: 'address' },
+      { name: 'name',    type: 'string'  },
+    ],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    name: 'allDAOs',
+    type: 'function',
+    stateMutability: 'view',
+    inputs:  [{ name: '', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    name: 'getDAOCount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs:  [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'getAllDAOs',
+    type: 'function',
+    stateMutability: 'view',
+    inputs:  [],
+    outputs: [{ name: '', type: 'address[]' }],
+  },
+] as const;
+
+export const REGISTRY_ABI = [
+  {
+    name: 'isAuthorizedWriter',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'writer', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const;
+
+export const LOGGER_ABI = [
+  {
+    name: 'isAuthorizedLogger',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'logger', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
   },
 ] as const;

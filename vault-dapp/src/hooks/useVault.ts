@@ -12,9 +12,9 @@
  * All other operations are standard ethers calls.
  */
 import { useState, useCallback, useRef } from 'react';
-import { BrowserProvider, Contract, parseEther, formatEther } from 'ethers';
+import { BrowserProvider, Contract, parseEther, formatEther, solidityPackedKeccak256 } from 'ethers';
 import { ADDRESSES, SEPOLIA_EXPLORER } from '../contracts/addresses';
-import { VAULT_ABI, CPE_ABI } from '../contracts/abis';
+import { VAULT_ABI, CPE_ABI, DAO_ABI, DAO_FACTORY_ABI } from '../contracts/abis';
 import type { FhevmInstance } from './useFhevm';
 
 export type TxStatus = 'idle' | 'encrypting' | 'pending' | 'success' | 'denied' | 'error';
@@ -27,7 +27,7 @@ export interface TxRecord {
   timestamp: number;
 }
 
-function getProvider() {
+export function getProvider() {
   if (!window.ethereum) throw new Error('No wallet detected');
   return new BrowserProvider(window.ethereum as ConstructorParameters<typeof BrowserProvider>[0]);
 }
@@ -46,6 +46,8 @@ async function getCPE(withSigner = true) {
 
 export function useVault() {
   const [balance, setBalance] = useState<string | null>(null);
+  const [daoBalance, setDaoBalance] = useState<string | null>(null);
+  const [selectedDAO, setSelectedDAO] = useState<string>(ADDRESSES.ConfidentialDAO);
   const [hasPolicy, setHasPolicy] = useState<boolean | null>(null);
   const [policyId, setPolicyId] = useState<string | null>(null);
   const [policyMeta, setPolicyMeta] = useState<Record<string, unknown> | null>(null);
@@ -65,6 +67,17 @@ export function useVault() {
       console.error('refreshBalance:', e);
     }
   }, []);
+
+  const refreshTreasury = useCallback(async () => {
+    try {
+      const p = getProvider();
+      const dao = new Contract(selectedDAO, DAO_ABI, p);
+      const raw = await dao.treasuryBalance();
+      setDaoBalance(formatEther(raw));
+    } catch (e) {
+      console.error('refreshTreasury:', e);
+    }
+  }, [selectedDAO]);
 
   const refreshPolicy = useCallback(async (address: string) => {
     try {
@@ -373,14 +386,183 @@ export function useVault() {
     }
   }, [pushHistory]);
 
+  // Write: Onboard (FHE)
+  const onboardUser = useCallback(async (
+    userAddress: string,
+    fhevmInstance: FhevmInstance,
+  ) => {
+    resetTx();
+    try {
+      // Step 1 - Generate unique policyId for demo
+      const pid = solidityPackedKeccak256(['address', 'string'], [userAddress, 'DEMO_VAULT_POLICY']);
+
+      // Default limits: 1 ETH per tx, 5 ETH daily, 10 ETH monthly (in Gwei)
+      const perTxLimit = 1_000_000_000n;
+      const dailyLimit = 5_000_000_000n;
+      const monthlyLimit = 10_000_000_000n;
+
+      setTxStatus('encrypting');
+      const input = fhevmInstance.createEncryptedInput(
+        ADDRESSES.ConfidentialPolicyEngine,
+        userAddress,
+      );
+      input.add64(perTxLimit);
+      input.add64(dailyLimit);
+      input.add64(monthlyLimit);
+      input.add8(1); // Risk Tier
+      input.add8(1); // Compliance Tier
+      const enc = await input.encrypt();
+
+      setTxStatus('pending');
+      const cpe = await getCPE();
+
+      // Step 2 - Create Policy
+      const tx1 = await cpe.createPolicy(
+        pid,
+        enc.handles[0],
+        enc.handles[1],
+        enc.handles[2],
+        enc.handles[3],
+        enc.handles[4],
+        enc.inputProof,
+        { gasLimit: 5_000_000 }
+      );
+      setTxHash(tx1.hash);
+      await tx1.wait();
+
+      // Step 3 - Bind Address
+      const tx2 = await cpe.bindAddress(pid, userAddress, { gasLimit: 200_000 });
+      setTxHash(tx2.hash);
+      await tx2.wait();
+
+      setTxStatus('success');
+      pushHistory({
+        type: 'Onboard',
+        hash: tx2.hash,
+        etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx2.hash}`,
+        status: 'confirmed',
+        timestamp: Date.now(),
+      });
+    } catch (e: unknown) {
+      setTxStatus('error');
+      setTxError(e instanceof Error ? e.message : String(e));
+    }
+  }, [pushHistory]);
+
+  // Write: DAO Functions
+  const daoDeposit = useCallback(async (amountEth: string) => {
+    resetTx();
+    try {
+      setTxStatus('pending');
+      const p = getProvider();
+      const runner = await p.getSigner();
+      const dao = new Contract(selectedDAO, DAO_ABI, runner);
+      const tx = await dao.deposit({ value: parseEther(amountEth), gasLimit: 120_000 });
+      setTxHash(tx.hash);
+      await tx.wait();
+      setTxStatus('success');
+      pushHistory({
+        type: 'DAO Deposit',
+        hash: tx.hash,
+        etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx.hash}`,
+        status: 'confirmed',
+        timestamp: Date.now(),
+      });
+    } catch (e: unknown) {
+      setTxStatus('error');
+      setTxError(e instanceof Error ? e.message : String(e));
+    }
+  }, [pushHistory, selectedDAO]);
+
+  const daoWithdraw = useCallback(async (
+    amountEth: string,
+    userAddress: string,
+    fhevmInstance: FhevmInstance,
+  ) => {
+    resetTx();
+    try {
+      const amountWei = parseEther(amountEth);
+      const amountGwei = amountWei / 1_000_000_000n;
+
+      setTxStatus('encrypting');
+      const input = fhevmInstance.createEncryptedInput(
+        selectedDAO,
+        userAddress,
+      );
+      input.add64(amountGwei);
+      const enc = await input.encrypt();
+
+      setTxStatus('pending');
+      const p = getProvider();
+      const runner = await p.getSigner();
+      const dao = new Contract(selectedDAO, DAO_ABI, runner);
+      const tx = await dao.withdraw(
+        enc.handles[0],
+        enc.inputProof,
+        amountWei,
+        { gasLimit: 3_000_000 },
+      );
+      setTxHash(tx.hash);
+      await tx.wait();
+
+      setTxStatus('success');
+      pushHistory({
+        type: 'DAO Withdrawal',
+        hash: tx.hash,
+        etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx.hash}`,
+        status: 'approved',
+        timestamp: Date.now(),
+      });
+    } catch (e: unknown) {
+      setTxStatus('error');
+      setTxError(e instanceof Error ? e.message : String(e));
+    }
+  }, [pushHistory, selectedDAO]);
+
+  const createDAO = useCallback(async (name: string) => {
+    resetTx();
+    try {
+      setTxStatus('pending');
+      const p = getProvider();
+      const runner = await p.getSigner();
+      const factory = new Contract(ADDRESSES.DAOFactory, DAO_FACTORY_ABI, runner);
+
+      const tx = await factory.createDAO(ADDRESSES.CPEGateway, name, { gasLimit: 5_000_000 });
+      setTxHash(tx.hash);
+      const receipt = await tx.wait();
+
+      // Extract the new DAO address from the event
+      // Event: DAOCreated(address indexed daoAddress, string name, address indexed creator)
+      const iface = factory.interface;
+      const log = receipt?.logs.find((l: { address: string }) => l.address === ADDRESSES.DAOFactory);
+      const daoAddr = log ? iface.parseLog(log)?.args[0] : null;
+
+      setTxStatus('success');
+      pushHistory({
+        type: 'Create DAO',
+        hash: tx.hash,
+        etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx.hash}`,
+        status: 'confirmed',
+        timestamp: Date.now(),
+      });
+      return daoAddr;
+    } catch (e: unknown) {
+      setTxStatus('error');
+      setTxError(e instanceof Error ? e.message : String(e));
+    }
+  }, [pushHistory]);
+
   return {
     // State
-    balance, hasPolicy, policyId, policyMeta,
+    balance, daoBalance, selectedDAO, hasPolicy, policyId, policyMeta,
     txStatus, txHash, txError, txHistory,
     // Actions
-    refreshBalance, refreshPolicy,
-    deposit, withdraw, compliantTransfer,
+    refreshBalance, refreshTreasury, refreshPolicy,
+    setSelectedDAO,
+    onboardUser,
+    deposit, withdraw, daoDeposit, daoWithdraw, compliantTransfer,
     freezePolicy, unfreezePolicy,
+    createDAO,
     resetTx,
     // Persistence helpers
     loadHistory, setCurrentAddress,

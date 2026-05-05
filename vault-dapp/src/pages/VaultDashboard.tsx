@@ -4,8 +4,12 @@
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { SEPOLIA_EXPLORER } from '../contracts/addresses';
-import { useVault } from '../hooks/useVault';
+import { useVault, getProvider } from '../hooks/useVault';
 import { useFhevm } from '../hooks/useFhevm';
+import { useDiscovery } from '../hooks/useDiscovery';
+import { Contract } from 'ethers';
+import { ADDRESSES } from '../contracts/addresses';
+import { REGISTRY_ABI, LOGGER_ABI, CPE_ABI } from '../contracts/abis';
 
 /* Small shared components */
 
@@ -38,21 +42,48 @@ export default function VaultDashboard() {
   const { address } = useAccount();
   const vault = useVault();
   const fhevm = useFhevm();
+  const discovery = useDiscovery();
+
+  // local UI state
+  const [activeTab, setactiveTab] = useState<'personal' | 'dao' | 'policies' | 'admin'>('personal');
+  const [isScanning, setIsScanning] = useState(true);
 
   // local form state
   const [depositAmt, setDepositAmt] = useState('');
   const [withdrawAmt, setWithdrawAmt] = useState('');
-  const [transferTo, setTransferTo] = useState('');
-  const [transferAmt, setTransferAmt] = useState('');
-  const [transferTier, setTransferTier] = useState('1');
 
-  // Load data on mount
+  // local DAO form state
+  const [daoDepositAmt, setDaoDepositAmt] = useState('');
+  const [daoWithdrawAmt, setDaoWithdrawAmt] = useState('');
+  const [newDaoName, setNewDaoName] = useState('');
+
+  // local Admin form state
+  const [manageSubject, setManageSubject] = useState('');
+  const [managePolicyId, setManagePolicyId] = useState('');
+  const [healthStatus, setHealthStatus] = useState<Record<string, boolean>>({});
+
+  // Auto-Discovery on mount
   useEffect(() => {
-    if (!address) return;
-    vault.setCurrentAddress(address);
-    vault.refreshBalance(address);
-    vault.refreshPolicy(address);
-    vault.loadHistory(address);
+    async function init() {
+      if (!address) return;
+      setIsScanning(true);
+
+      // 1. Scan for DAOs
+      const found = await discovery.scanForDAOs(address);
+
+      // 2. Auto-select first DAO found (if any)
+      if (found.length > 0) {
+        vault.setSelectedDAO(found[0].address);
+        setactiveTab(found[0].role === 'admin' ? 'admin' : 'dao');
+      }
+
+      // 3. Load basic data
+      vault.refreshBalance(address);
+      vault.refreshPolicy(address);
+      vault.refreshTreasury();
+      setIsScanning(false);
+    }
+    init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
@@ -61,6 +92,12 @@ export default function VaultDashboard() {
     (vault.policyMeta.policyAdmin as string)?.toLowerCase() === address?.toLowerCase();
 
   /* Handlers */
+
+  async function handleOnboard() {
+    if (!address || !fhevm.instance) return;
+    await vault.onboardUser(address, fhevm.instance);
+    if (address) vault.refreshPolicy(address);
+  }
 
   async function handleDeposit() {
     if (!depositAmt) return;
@@ -76,20 +113,6 @@ export default function VaultDashboard() {
     if (address) { vault.refreshBalance(address); }
   }
 
-  async function handleTransfer() {
-    if (!transferTo || !transferAmt) return;
-    await vault.compliantTransfer(transferTo, transferAmt, Number(transferTier));
-    setTransferTo('');
-    setTransferAmt('');
-    if (address) { vault.refreshBalance(address); }
-    try {
-      // also refresh recipient balance in-case the recipient is being viewed
-      vault.refreshBalance(transferTo);
-    } catch {
-      // ignore errors (e.g., invalid address format)
-    }
-  }
-
   async function handleFreeze() {
     if (!vault.policyId) return;
     await vault.freezePolicy(vault.policyId);
@@ -102,286 +125,515 @@ export default function VaultDashboard() {
   async function handleUnfreeze() {
     if (!vault.policyId) return;
     await vault.unfreezePolicy(vault.policyId);
-    if (address) {
-      await vault.refreshPolicy(address);
-      await vault.loadHistory(address);
+    if (address) vault.refreshPolicy(address);
+  }
+
+  async function handleDAODeposit() {
+    if (!daoDepositAmt) return;
+    await vault.daoDeposit(daoDepositAmt);
+    setDaoDepositAmt('');
+    vault.refreshTreasury();
+  }
+
+  async function handleDAOWithdraw() {
+    if (!daoWithdrawAmt || !address || !fhevm.instance) return;
+    await vault.daoWithdraw(daoWithdrawAmt, address, fhevm.instance);
+    setDaoWithdrawAmt('');
+    vault.refreshTreasury();
+  }
+
+  async function handleBindUser() {
+    if (!manageSubject || !managePolicyId) return;
+    await vault.onboardUser(manageSubject, fhevm.instance!);
+    setManageSubject('');
+    setManagePolicyId('');
+  }
+
+  async function checkHealth() {
+    try {
+      const p = await getProvider();
+      const registry = new Contract(ADDRESSES.PolicyRegistry, REGISTRY_ABI, p);
+      const logger = new Contract(ADDRESSES.AuditLogger, LOGGER_ABI, p);
+      const cpe = new Contract(ADDRESSES.ConfidentialPolicyEngine, CPE_ABI, p);
+
+      const isWriter = await registry.isAuthorizedWriter(ADDRESSES.ConfidentialPolicyEngine);
+      const isLogger = await logger.isAuthorizedLogger(ADDRESSES.ConfidentialPolicyEngine);
+      const isGateway = await cpe.isAuthorizedCaller(ADDRESSES.CPEGateway);
+
+      setHealthStatus({
+        registry: isWriter,
+        logger: isLogger,
+        gateway: isGateway,
+      });
+    } catch (e) {
+      console.error('health check failed', e);
+    }
+  }
+
+  async function handleCreateDAO() {
+    if (!newDaoName) return;
+    const addr = await vault.createDAO(newDaoName);
+    if (addr) {
+      setNewDaoName('');
+      if (address) discovery.scanForDAOs(address);
     }
   }
 
   /* Render */
+  if (isScanning) {
+    return (
+      <div className="dashboard fade-up" style={{ textAlign: 'center', paddingTop: 100 }}>
+        <span className="spin" style={{ fontSize: 40 }}>⟳</span>
+        <h2 style={{ marginTop: 24 }}>Discovering your Confidential DAOs...</h2>
+        <p style={{ color: 'var(--text-muted)' }}>Scanning the CPE registry for your active policies.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard fade-up">
       <div className="dashboard__topbar">
-        <h1 className="dashboard__title">Vault Dashboard</h1>
+        <div>
+          <h1 className="dashboard__title">Vault Dashboard</h1>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }}>
+            <button
+              className={`btn btn-sm ${activeTab === 'personal' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setactiveTab('personal')}
+            >
+              👤 Personal
+            </button>
+            <button
+              className={`btn btn-sm ${activeTab === 'dao' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setactiveTab('dao')}
+            >
+              🏛️ DAO
+            </button>
+            <button
+              className={`btn btn-sm ${activeTab === 'policies' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setactiveTab('policies')}
+            >
+              📜 Policies
+            </button>
+            {isAdmin && (
+              <button
+                className={`btn btn-sm ${activeTab === 'admin' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setactiveTab('admin')}
+              >
+                🛡️ Admin
+              </button>
+            )}
+          </div>
+
+          {discovery.foundDAOs.length > 1 && (
+            <div style={{ marginTop: 12 }}>
+              <select
+                className="btn-sm"
+                value={vault.selectedDAO}
+                onChange={(e) => {
+                  vault.setSelectedDAO(e.target.value);
+                  const role = discovery.foundDAOs.find(d => d.address === e.target.value)?.role;
+                  if (role) setactiveTab(role === 'admin' ? 'admin' : 'dao');
+                }}
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 4, padding: '4px 8px' }}
+              >
+                {discovery.foundDAOs.map(d => (
+                  <option key={d.address} value={d.address}>
+                    Active Policy: {d.name} ({d.address.slice(0, 8)}...)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => {
-            // User expects a full reload — perform a hard refresh of the page.
-            // This will re-run the app bootstrap, re-initialize hooks, and
-            // fetch latest on-chain state.
             if (!address) return;
-            window.location.reload();
+            discovery.scanForDAOs(address);
+            vault.refreshBalance(address);
+            vault.refreshPolicy(address);
+            vault.refreshTreasury();
           }}
         >
-          ↻ Refresh
+          ⟳ Refresh
         </button>
       </div>
 
       <div className="dashboard__grid">
-
-        {/* 1. Balance */}
-        <div className="card card--accent">
-          <div className="panel-title">💰 Vault Balance</div>
-          <div className="balance-val">
-            {vault.balance !== null ? `${Number(vault.balance).toFixed(6)}` : '-'}
-          </div>
-          <div className="balance-sub">ETH · Sepolia</div>
-          <div className="divider" />
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Address: {address?.slice(0, 6)}…{address?.slice(-4)}
-          </div>
+        {/* 1. Account Info */}
+        <div className="card">
+          <div className="panel-title">👤 Account Balance</div>
+          <div className="balance-val">{vault.balance ?? '0.00'} ETH</div>
+          <div className="balance-sub">Internal Vault Ledger</div>
         </div>
 
-        {/*  2. Policy Status */}
+        {/* 2. DAO Treasury */}
         <div className="card">
-          <div className="panel-title">🛡️ Policy Status</div>
-          {vault.hasPolicy === null ? (
-            <div className="balance-sub">Loading…</div>
-          ) : vault.hasPolicy ? (
-            <dl className="policy-table">
-              <div className="policy-row">
-                <dt>Status</dt>
-                <dd><span className="badge badge-ok">Active</span></dd>
-              </div>
-              <div className="policy-row">
-                <dt>Admin</dt>
-                <dd style={{ fontSize: 12 }}>
-                  {(vault.policyMeta?.policyAdmin as string)?.slice(0, 8)}…
-                </dd>
-              </div>
-              <div className="policy-row">
-                <dt>Daily resets</dt>
-                <dd style={{ fontSize: 12 }}>
-                  {vault.policyMeta?.dailyResetAt
-                    ? new Date(vault.policyMeta.dailyResetAt as string).toLocaleDateString()
-                    : '-'}
-                </dd>
-              </div>
+          <div className="panel-title">🏛️ DAO Treasury</div>
+          <div className="balance-val">{vault.daoBalance ?? '0.00'} ETH</div>
+          <div className="balance-sub">Shared Corporate Pool</div>
+        </div>
+
+        {/* 3. Policy Info */}
+        <div className="card span-2 card--accent">
+          <div className="panel-title">🛡️ Policy Enforcement (FHE)</div>
+          {!vault.hasPolicy ? (
+            <div style={{ textAlign: 'center', padding: '12px 0' }}>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
+                You don't have an active policy bound to this vault.
+              </p>
+              <button className="btn btn-primary" onClick={handleOnboard} disabled={isBusy}>
+                Onboard & Create Policy
+              </button>
+            </div>
+          ) : (
+            <div className="policy-table">
               <div className="policy-row">
                 <dt>Policy ID</dt>
-                <dd style={{ fontSize: 11 }}>{vault.policyId?.slice(0, 14)}…</dd>
+                <dd>{vault.policyId?.slice(0, 24)}...</dd>
               </div>
-            </dl>
-          ) : (
-            <div>
-              <span className="badge badge-warn" style={{ marginBottom: 8, display: 'inline-flex' }}>
-                No Policy Bound
-              </span>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
-                Ask the CPE admin to bind your address to a policy before withdrawing.
+              <div className="policy-row">
+                <dt>Status</dt>
+                <dd>
+                  <span className={`badge ${vault.policyMeta?.frozen ? 'badge-err' : 'badge-ok'}`}>
+                    {vault.policyMeta?.frozen ? 'FROZEN' : 'ACTIVE'}
+                  </span>
+                </dd>
+              </div>
+              <div className="policy-row">
+                <dt>Last Evaluation</dt>
+                <dd>{vault.policyMeta?.updatedAt ? new Date(vault.policyMeta.updatedAt as string).toLocaleString() : 'Never'}</dd>
+              </div>
+              <div className="policy-row">
+                <dt>Compliance Tier</dt>
+                <dd><span className="badge badge-fhe">ENCRYPTED</span></dd>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'personal' && (
+          <>
+            <div className="card card--accent">
+              <div className="panel-title">💰 Personal Balance</div>
+              <div className="balance-val">
+                {vault.balance !== null ? `${Number(vault.balance).toFixed(6)}` : '-'}
+              </div>
+              <div className="balance-sub">ETH · Sepolia</div>
+              <div className="divider" />
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Your private wallet within the vault.
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="panel-title">🛡️ Policy Status</div>
+              {vault.hasPolicy === null ? (
+                <div className="balance-sub">Loading…</div>
+              ) : vault.hasPolicy ? (
+                <dl className="policy-table">
+                  <div className="policy-row">
+                    <dt>Status</dt>
+                    <dd><span className="badge badge-ok">Active</span></dd>
+                  </div>
+                  <div className="policy-row">
+                    <dt>Policy ID</dt>
+                    <dd style={{ fontSize: 11 }}>{vault.policyId?.slice(0, 14)}…</dd>
+                  </div>
+                </dl>
+              ) : (
+                <div>
+                  <span className="badge badge-warn" style={{ marginBottom: 8, display: 'inline-flex' }}>
+                    No Policy Bound
+                  </span>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, marginBottom: 16 }}>
+                    Initialize your demo account to set up your encrypted security limits.
+                  </p>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleOnboard}
+                    disabled={isBusy || fhevm.loading || !fhevm.instance}
+                    style={{ width: '100%' }}
+                  >
+                    Initialize Account
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="panel-title">⬇️ Deposit ETH</div>
+              <div className="field" style={{ marginBottom: 12 }}>
+                <input
+                  type="number"
+                  placeholder="0.05"
+                  value={depositAmt}
+                  onChange={e => setDepositAmt(e.target.value)}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleDeposit}
+                disabled={isBusy || !depositAmt}
+                style={{ width: '100%' }}
+              >
+                Deposit
+              </button>
+            </div>
+
+            <div className="card card--accent">
+              <div className="panel-title">
+                ⬆️ Withdraw
+                <span className="badge badge-fhe">🔐 FHE</span>
+              </div>
+              <div className="field" style={{ marginBottom: 12 }}>
+                <input
+                  type="number"
+                  placeholder="0.01"
+                  value={withdrawAmt}
+                  onChange={e => setWithdrawAmt(e.target.value)}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleWithdraw}
+                disabled={isBusy || !withdrawAmt || !fhevm.instance}
+                style={{ width: '100%' }}
+              >
+                Withdraw (FHE)
+              </button>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'dao' && (
+          <>
+            <div className="card card--accent span-2">
+              <div className="panel-title">🏛️ DAO Treasury Pool</div>
+              <div className="balance-val">
+                {vault.daoBalance !== null ? `${Number(vault.daoBalance).toFixed(4)}` : '0.0000'}
+              </div>
+              <div className="balance-sub">Total Shared ETH Reserves</div>
+              <div className="divider" />
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                This is a shared treasury. Anyone can deposit, but withdrawals are
+                privately gated. Your personal FHE policy determines how much you
+                can spend from this pool.
               </p>
             </div>
-          )}
-        </div>
 
-        {/* 3. Deposit */}
-        <div className="card">
-          <div className="panel-title">⬇️ Deposit ETH</div>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-            Deposits are unrestricted - no policy check required.
-          </p>
-          <div className="field" style={{ marginBottom: 12 }}>
-            <label>Amount (ETH)</label>
-            <input
-              type="number"
-              placeholder="0.05"
-              min="0"
-              step="0.001"
-              value={depositAmt}
-              onChange={e => setDepositAmt(e.target.value)}
-            />
-          </div>
-          <button
-            className="btn btn-primary"
-            onClick={handleDeposit}
-            disabled={isBusy || !depositAmt}
-            style={{ width: '100%' }}
-          >
-            {vault.txStatus === 'pending' ? <span className="spin">⟳</span> : 'Deposit'}
-          </button>
-          <TxBanner status={vault.txStatus} txHash={vault.txHash} error={vault.txError} />
-        </div>
-
-        {/* 4. Withdraw (FHE) */}
-        <div className="card card--accent">
-          <div className="panel-title">
-            ⬆️ Withdraw
-            <span className="badge badge-fhe">🔐 FHE Encrypted</span>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-            Amount is encrypted client-side via Zama Relayer SDK before the transaction
-            is sent. The policy evaluates in ciphertext on-chain.
-          </p>
-
-          {fhevm.loading && (
-            <div className="tx-banner tx-banner--encrypting" style={{ marginBottom: 12 }}>
-              <span className="spin">⟳</span> Initialising FHE WASM…
+            <div className="card">
+              <div className="panel-title">🏛️ Contribute to DAO</div>
+              <div className="field" style={{ marginBottom: 12 }}>
+                <input
+                  type="number"
+                  placeholder="0.1"
+                  value={daoDepositAmt}
+                  onChange={e => setDaoDepositAmt(e.target.value)}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleDAODeposit}
+                disabled={isBusy || !daoDepositAmt}
+                style={{ width: '100%' }}
+              >
+                Contribute
+              </button>
             </div>
-          )}
-          {fhevm.error && (
-            <div className="tx-banner tx-banner--error" style={{ marginBottom: 12 }}>
-              FHE init failed: {fhevm.error}
-            </div>
-          )}
 
-          <div className="field" style={{ marginBottom: 12 }}>
-            <label>Amount (ETH)</label>
-            <input
-              type="number"
-              placeholder="0.01"
-              min="0"
-              step="0.001"
-              value={withdrawAmt}
-              onChange={e => setWithdrawAmt(e.target.value)}
-            />
-          </div>
-          <button
-            className="btn btn-primary"
-            onClick={handleWithdraw}
-            disabled={isBusy || !withdrawAmt || fhevm.loading || !fhevm.instance}
-            style={{ width: '100%' }}
-          >
-            {vault.txStatus === 'encrypting'
-              ? <><span className="spin">⟳</span> Encrypting…</>
-              : vault.txStatus === 'pending'
-                ? <><span className="spin">⟳</span> Sending…</>
-                : 'Withdraw (FHE)'}
-          </button>
-          <TxBanner status={vault.txStatus} txHash={vault.txHash} error={vault.txError} />
-        </div>
+            <div className="card card--accent">
+              <div className="panel-title">🏛️ Spend from DAO <span className="badge badge-fhe">🔐 FHE</span></div>
+              <div className="field" style={{ marginBottom: 12 }}>
+                <input
+                  type="number"
+                  placeholder="0.01"
+                  value={daoWithdrawAmt}
+                  onChange={e => setDaoWithdrawAmt(e.target.value)}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleDAOWithdraw}
+                disabled={isBusy || !daoWithdrawAmt || !fhevm.instance}
+                style={{ width: '100%' }}
+              >
+                Withdraw from DAO
+              </button>
+            </div>
 
-        {/* 5. Compliant Transfer */}
-        <div className="card">
-          <div className="panel-title">🔄 Compliant Transfer</div>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-            Transfers vault balance to another address if your encrypted compliance
-            tier meets the required level. Checked fully on-chain.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
-            <div className="field">
-              <label>Recipient Address</label>
-              <input
-                type="text"
-                placeholder="0x…"
-                value={transferTo}
-                onChange={e => setTransferTo(e.target.value)}
-              />
+            /* NEW: Create DAO CTA */
+            <div className="card span-2" style={{ border: '1px dashed var(--accent)', background: 'rgba(168, 85, 247, 0.05)' }}>
+              <div className="panel-title">✨ Create Your Own Institution</div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <input
+                  placeholder="DAO Name (e.g. Zama Investors)"
+                  value={newDaoName}
+                  onChange={e => setNewDaoName(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button className="btn btn-primary" onClick={handleCreateDAO} disabled={!newDaoName}>
+                  Deploy New DAO
+                </button>
+              </div>
             </div>
-            <div className="field">
-              <label>Amount (ETH)</label>
-              <input
-                type="number"
-                placeholder="0.01"
-                min="0"
-                step="0.001"
-                value={transferAmt}
-                onChange={e => setTransferAmt(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label>Required Tier (min)</label>
-              <select value={transferTier} onChange={e => setTransferTier(e.target.value)}>
-                <option value="1">Tier 1 - Basic KYC</option>
-                <option value="2">Tier 2 - Accredited Investor</option>
-                <option value="3">Tier 3 - Institutional</option>
-              </select>
-            </div>
-          </div>
-          <button
-            className="btn btn-outline"
-            onClick={handleTransfer}
-            disabled={isBusy || !transferTo || !transferAmt}
-            style={{ width: '100%' }}
-          >
-            {vault.txStatus === 'pending' ? <span className="spin">⟳</span> : 'Transfer'}
-          </button>
-          <TxBanner status={vault.txStatus} txHash={vault.txHash} error={vault.txError} />
-        </div>
+          </>
+        )}
 
-        {/* 6. Policy Admin */}
-        <div className="card">
-          <div className="panel-title">
-            ⚙️ Policy Admin
-            {!isAdmin && <span className="badge badge-muted" style={{ marginLeft: 8 }}>Admin only</span>}
-          </div>
-          {!vault.hasPolicy ? (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No policy bound to this address.</p>
-          ) : !isAdmin ? (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              Only the policy admin can freeze or unfreeze. Your address is not the admin of this policy.
+        {activeTab === 'policies' && (
+          <div className="card span-2 fade-up">
+            <div className="panel-title">📜 Discovered Policies & DAOs</div>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
+              These are the confidential DAOs where you are a member or admin.
+              Click "Switch" to view specific treasury and admin controls.
             </p>
-          ) : (
-            <>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                Freeze/unfreeze is stored as an encrypted boolean - indistinguishable
-                from any other state write on-chain.
-              </p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                    <button
-                      className="btn btn-outline"
-                      onClick={handleFreeze}
-                      disabled={isBusy || !vault.policyId || (vault.policyMeta as { frozen?: boolean } | null)?.frozen === true}
-                      style={{ flex: 1 }}
-                    >
-                      {vault.txStatus === 'pending' ? <span className="spin">⟳</span> : '🧊 Freeze'}
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleUnfreeze}
-                      disabled={isBusy || !vault.policyId || (vault.policyMeta as { frozen?: boolean } | null)?.frozen === false}
-                      style={{ flex: 1 }}
-                    >
-                      {vault.txStatus === 'pending' ? <span className="spin">⟳</span> : '☀️ Unfreeze'}
-                    </button>
+
+            {discovery.foundDAOs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', background: 'rgba(0,0,0,0.2)', borderRadius: 8 }}>
+                <p style={{ color: 'var(--text-muted)' }}>No policies discovered yet.</p>
+                <button className="btn btn-sm btn-outline" style={{ marginTop: 12 }} onClick={() => address && discovery.scanForDAOs(address)}>
+                  Scan Registry
+                </button>
               </div>
-              <TxBanner status={vault.txStatus} txHash={vault.txHash} error={vault.txError} />
-            </>
-          )}
-        </div>
+            ) : (
+              <div className="tx-list">
+                {discovery.foundDAOs.map(dao => (
+                  <div key={dao.address} className="tx-item" style={{ padding: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{dao.name}</span>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <code style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dao.address.slice(0, 12)}...</code>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>
+                          Created: {new Date(dao.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span className={`badge ${dao.role === 'admin' ? 'badge-fhe' : 'badge-ok'}`}>
+                        {dao.role === 'admin' ? 'Policy Admin' : 'Member'}
+                      </span>
+                      {vault.selectedDAO === dao.address ? (
+                        <span className="badge badge-muted">Active</span>
+                      ) : (
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => {
+                            vault.setSelectedDAO(dao.address);
+                            setactiveTab(dao.role === 'admin' ? 'admin' : 'dao');
+                          }}
+                        >
+                          Switch
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'admin' && (
+          <>
+            <div className="card span-2">
+              <div className="panel-title">🛡️ Policy Administration</div>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                Manage member access and security policies for the institution.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="field">
+                  <label>Member Address</label>
+                  <input
+                    placeholder="0x..."
+                    value={manageSubject}
+                    onChange={e => setManageSubject(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Policy ID</label>
+                  <input
+                    placeholder="Silver / Gold / Exec"
+                    value={managePolicyId}
+                    onChange={e => setManagePolicyId(e.target.value)}
+                  />
+                </div>
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ width: '100%', marginTop: 16 }}
+                onClick={handleBindUser}
+              >
+                Bind Member to Policy
+              </button>
+            </div>
+
+            <div className="card">
+              <div className="panel-title">🧊 Emergency Control</div>
+              <button
+                className="btn btn-outline"
+                onClick={handleFreeze}
+                disabled={isBusy || !vault.policyId}
+                style={{ width: '100%', marginBottom: 10 }}
+              >
+                Freeze Policy
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleUnfreeze}
+                disabled={isBusy || !vault.policyId}
+                style={{ width: '100%' }}
+              >
+                Unfreeze Policy
+              </button>
+            </div>
+
+            <div className="card span-2">
+              <div className="panel-title">📡 Protocol Health Diagnostics</div>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+                Verify the integrity of the CPE-Gateway-Infrastructure trust chain.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div className={`health-item ${healthStatus.registry ? 'ok' : 'pending'}`}>
+                  Registry Writer {healthStatus.registry === true ? '✓' : healthStatus.registry === false ? '✗' : '...'}
+                </div>
+                <div className={`health-item ${healthStatus.logger ? 'ok' : 'pending'}`}>
+                  Audit Logger {healthStatus.logger === true ? '✓' : healthStatus.logger === false ? '✗' : '...'}
+                </div>
+                <div className={`health-item ${healthStatus.gateway ? 'ok' : 'pending'}`}>
+                  Gateway Authorized {healthStatus.gateway === true ? '✓' : healthStatus.gateway === false ? '✗' : '...'}
+                </div>
+              </div>
+              <button className="btn btn-sm btn-ghost" onClick={checkHealth} style={{ width: '100%' }}>
+                Run Diagnostics
+              </button>
+            </div>
+          </>
+        )}
 
         {/* 7. TX History */}
         <div className="card span-2">
           <div className="panel-title">📜 Transaction History</div>
+          <TxBanner status={vault.txStatus} txHash={vault.txHash} error={vault.txError} />
           {vault.txHistory.length === 0 ? (
-            <div className="tx-empty">No transactions yet - make your first deposit or withdrawal.</div>
+            <div className="tx-empty">No transactions yet.</div>
           ) : (
             <div className="tx-list">
               {vault.txHistory.map((tx, i) => (
                 <div key={i} className="tx-item">
                   <span className="tx-item__type">{tx.type}</span>
-                  <span className={`badge ${tx.status === 'approved' ? 'badge-ok'
-                    : tx.status === 'denied' ? 'badge-err'
-                      : 'badge-muted'
-                    }`}>
+                  <span className={`badge ${tx.status === 'approved' ? 'badge-ok' : tx.status === 'denied' ? 'badge-err' : 'badge-muted'}`}>
                     {tx.status}
                   </span>
-                  <span className="tx-item__time">
-                    {new Date(tx.timestamp).toLocaleTimeString()}
-                  </span>
-                  <a
-                    href={tx.etherscanUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="tx-item__link"
-                  >
-                    Etherscan ↗
-                  </a>
+                  <span className="tx-item__time">{new Date(tx.timestamp).toLocaleTimeString()}</span>
+                  <a href={tx.etherscanUrl} target="_blank" rel="noreferrer" className="tx-item__link">Etherscan ↗</a>
                 </div>
               ))}
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

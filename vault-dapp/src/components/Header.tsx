@@ -14,8 +14,8 @@ export default function Header() {
         {/* Logo */}
         <Link to="/" className="header__logo">
           <img src={viteLogo} alt="CPE logo" />
-          <span>ConfidentialVault</span>
-          <span className="dim">/ CPE Demo</span>
+          <span className="logo-text">ConfidentialVault</span>
+          <span className="dim logo-text">/ CPE Demo</span>
         </Link>
 
         {/* Nav */}
