@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
+// Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
 /**
  * useVault - all contract interactions for the demo dApp.
  *
@@ -8,7 +11,7 @@
  *
  * All other operations are standard ethers calls.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { BrowserProvider, Contract, parseEther, formatEther } from 'ethers';
 import { ADDRESSES, SEPOLIA_EXPLORER } from '../contracts/addresses';
 import { VAULT_ABI, CPE_ABI } from '../contracts/abis';
@@ -42,15 +45,15 @@ async function getCPE(withSigner = true) {
 }
 
 export function useVault() {
-  const [balance,    setBalance]    = useState<string | null>(null);
-  const [hasPolicy,  setHasPolicy]  = useState<boolean | null>(null);
-  const [policyId,   setPolicyId]   = useState<string | null>(null);
+  const [balance, setBalance] = useState<string | null>(null);
+  const [hasPolicy, setHasPolicy] = useState<boolean | null>(null);
+  const [policyId, setPolicyId] = useState<string | null>(null);
   const [policyMeta, setPolicyMeta] = useState<Record<string, unknown> | null>(null);
-  const [txStatus,   setTxStatus]   = useState<TxStatus>('idle');
-  const [txHash,     setTxHash]     = useState<string | null>(null);
-  const [txError,    setTxError]    = useState<string | null>(null);
-  const [txHistory,  setTxHistory]  = useState<TxRecord[]>([]);
-  const currentAddressRef = { current: null as string | null };
+  const [txStatus, setTxStatus] = useState<TxStatus>('idle');
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
+  const [txHistory, setTxHistory] = useState<TxRecord[]>([]);
+  const currentAddressRef = useRef<string | null>(null);
   // Reads
 
   const refreshBalance = useCallback(async (address: string) => {
@@ -92,14 +95,14 @@ export function useVault() {
         }
 
         setPolicyMeta({
-          policyAdmin:    meta[0],
-          pendingAdmin:   meta[1],
-          exists:         meta[2],
-          createdAt:      new Date(Number(meta[3]) * 1000).toISOString(),
-          updatedAt:      new Date(Number(meta[4]) * 1000).toISOString(),
-          dailyResetAt:   new Date(Number(meta[5]) * 1000).toISOString(),
+          policyAdmin: meta[0],
+          pendingAdmin: meta[1],
+          exists: meta[2],
+          createdAt: new Date(Number(meta[3]) * 1000).toISOString(),
+          updatedAt: new Date(Number(meta[4]) * 1000).toISOString(),
+          dailyResetAt: new Date(Number(meta[5]) * 1000).toISOString(),
           monthlyResetAt: new Date(Number(meta[6]) * 1000).toISOString(),
-          frozen:         frozenFlag,
+          frozen: frozenFlag,
         });
       } else {
         setPolicyId(null);
@@ -118,19 +121,19 @@ export function useVault() {
     setTxError(null);
   }
 
-  function pushHistory(record: TxRecord) {
+  const pushHistory = useCallback((record: TxRecord) => {
     setTxHistory(prev => {
       const next = [record, ...prev].slice(0, 20);
       // persist if we have a current address
       try {
         const addr = currentAddressRef.current;
         if (addr) window.localStorage.setItem(`txHistory:${addr}`, JSON.stringify(next));
-      } catch (e) {
+      } catch {
         // ignore storage errors
       }
       return next;
     });
-  }
+  }, []);
 
   async function loadHistory(address: string) {
     try {
@@ -189,7 +192,7 @@ export function useVault() {
       records.forEach(r => byHash.set(r.hash, r));
       const merged = Array.from(byHash.values()).sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
       setTxHistory(merged);
-      try { window.localStorage.setItem(`txHistory:${address}`, JSON.stringify(merged)); } catch {}
+      try { window.localStorage.setItem(`txHistory:${address}`, JSON.stringify(merged)); } catch { /* ignore */ }
     } catch (err) {
       console.error('loadHistory:', err);
     }
@@ -217,11 +220,11 @@ export function useVault() {
         status: 'confirmed',
         timestamp: Date.now(),
       });
-      } catch (err: unknown) {
+    } catch (err: unknown) {
       setTxStatus('error');
       setTxError(err instanceof Error ? err.message : String(err));
     }
-  }, []);
+  }, [pushHistory]);
 
   // Write: Withdraw (FHE)
 
@@ -232,7 +235,7 @@ export function useVault() {
   ) => {
     resetTx();
     try {
-      const amountWei  = parseEther(amountEth);
+      const amountWei = parseEther(amountEth);
       const amountGwei = amountWei / 1_000_000_000n; // policy unit
 
       // Step 1 - FHE encrypt (for Vault verifier)
@@ -259,10 +262,10 @@ export function useVault() {
       // Check events to determine approve/deny
       const iface = vault.interface;
       const approvedTopic = iface.getEvent('WithdrawalApproved')?.topicHash;
-      const deniedTopic   = iface.getEvent('WithdrawalDenied')?.topicHash;
+      const deniedTopic = iface.getEvent('WithdrawalDenied')?.topicHash;
       const logs = receipt?.logs ?? [];
       const wasApproved = logs.some((l: { topics: string[] }) => l.topics[0] === approvedTopic);
-      const wasDenied   = logs.some((l: { topics: string[] }) => l.topics[0] === deniedTopic);
+      const wasDenied = logs.some((l: { topics: string[] }) => l.topics[0] === deniedTopic);
 
       setTxStatus(wasDenied ? 'denied' : 'success');
       pushHistory({
@@ -276,7 +279,7 @@ export function useVault() {
       setTxStatus('error');
       setTxError(err instanceof Error ? err.message : String(err));
     }
-  }, []);
+  }, [pushHistory]);
 
   // Write: Compliant Transfer
 
@@ -309,7 +312,7 @@ export function useVault() {
       setTxStatus('error');
       setTxError(err instanceof Error ? err.message : String(err));
     }
-  }, []);
+  }, [pushHistory]);
 
   // Write: Freeze / Unfreeze Policy
 
@@ -335,12 +338,12 @@ export function useVault() {
         if (addr) window.localStorage.setItem(`txHistory:${addr}`, JSON.stringify([{
           type: 'Freeze Policy', hash: tx.hash, etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx.hash}`, status: 'confirmed', timestamp: Date.now()
         }, ...(JSON.parse(window.localStorage.getItem(`txHistory:${addr}`) || '[]') as TxRecord[])]));
-      } catch {}
+      } catch { /* ignore */ }
     } catch (err: unknown) {
       setTxStatus('error');
       setTxError(err instanceof Error ? err.message : String(err));
     }
-  }, []);
+  }, [pushHistory]);
 
   const unfreezePolicy = useCallback(async (pid: string) => {
     resetTx();
@@ -363,12 +366,12 @@ export function useVault() {
         if (addr) window.localStorage.setItem(`txHistory:${addr}`, JSON.stringify([{
           type: 'Unfreeze Policy', hash: tx.hash, etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx.hash}`, status: 'confirmed', timestamp: Date.now()
         }, ...(JSON.parse(window.localStorage.getItem(`txHistory:${addr}`) || '[]') as TxRecord[])]));
-      } catch {}
+      } catch { /* ignore */ }
     } catch (e: unknown) {
       setTxStatus('error');
       setTxError(e instanceof Error ? e.message : String(e));
     }
-  }, []);
+  }, [pushHistory]);
 
   return {
     // State

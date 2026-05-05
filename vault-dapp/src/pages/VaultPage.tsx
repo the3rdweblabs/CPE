@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
+// Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { SEPOLIA_CHAIN_ID } from '../contracts/addresses';

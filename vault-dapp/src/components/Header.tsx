@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
+// Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
 import { useLocation, Link } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import viteLogo from '/favicon.svg';

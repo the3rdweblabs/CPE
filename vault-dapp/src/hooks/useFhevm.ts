@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
+// Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
 /**
  * useFhevm - singleton FHEVM instance for the dApp.
  *
@@ -17,6 +20,7 @@ let _initPromise: Promise<void> | null = null;
 // here to allow the dapp to call documented instance methods without
 // overly strict local typings. If you prefer, replace `any` with a
 // precise interface matching `createInstance()`'s return value.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type FhevmInstance = any;
 
 export function useFhevm() {
@@ -29,8 +33,10 @@ export function useFhevm() {
     mounted.current = true;
 
     if (_instance) {
-      setInstance(_instance);
-      setLoading(false);
+      Promise.resolve().then(() => {
+        setInstance(_instance);
+        setLoading(false);
+      });
       return;
     }
 
@@ -46,6 +52,7 @@ export function useFhevm() {
             '@zama-fhe/relayer-sdk/bundle',
             '@zama-fhe/relayer-sdk/web',
           ];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let mod: any = null;
           let lastErr: unknown = null;
 
@@ -54,17 +61,14 @@ export function useFhevm() {
           // to resolve package specifiers like '@zama-fhe/relayer-sdk/web'.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if ((window as any).relayerSDK) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             mod = (window as any).relayerSDK;
           } else {
             for (const spec of candidates) {
               try {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
                 // dynamic import - some environments resolve different entry points
-                // @ts-ignore
                 // Tell Vite to ignore static analysis for this dynamic specifier
                 // so it doesn't warn about dynamic import variables.
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore:next-line
                 // @vite-ignore
                 mod = await import(spec);
                 lastErr = null;
@@ -85,9 +89,9 @@ export function useFhevm() {
           }
 
           // createInstance is the documented initialization method
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           _instance = await createInstance({
             ...SepoliaConfig,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             network: (window as any).ethereum, // EIP-1193 - MetaMask / injected wallet
           });
         } catch (err) {
