@@ -18,6 +18,7 @@ export default tseslint.config(
       "dist/**",
       "node_modules/**",
       "types/**",
+      "vault-dapp/**",
       "*.env",
       "*.log",
       "coverage.json",
