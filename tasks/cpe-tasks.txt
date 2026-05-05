@@ -1,29 +1,79 @@
-# 1. Check your wallet
-npx hardhat --network sepolia task:wallet
+# CONFIDENTIAL POLICY ENGINE
 
-# 2. Deploy if not done yet
+# 1. SETUP: Wallet & Deployment
+npx hardhat --network sepolia task:wallet
 npm run deploy:sepolia
 
-# 3. Create a policy (real FHE encryption against Sepolia)
-npx hardhat --network sepolia task:create-policy --name "my-first-policy"
+# PHASE A: PERSONAL VAULT & COMPLIANCE
 
-# 4. Bind your wallet to the policy
-npx hardhat --network sepolia task:bind-address --name "my-first-policy"
+# 2. CREATE POLICY
+# (Policy Tier is set to 1 by default in this task)
+npx hardhat --network sepolia task:create-policy --name "my-policy"
 
-# 5. Check it's live
-npx hardhat --network sepolia task:policy-info --name "my-first-policy"
+# 3. BIND WALLET
+npx hardhat --network sepolia task:bind-address --name "my-policy"
 
-# 6. Deposit ETH into the vault
+# 4. DEPOSIT
 npx hardhat --network sepolia task:deposit --amount "0.05"
 
-# 7. Withdraw within limits (1 ETH perTxLimit) — should PASS
+# 5. WITHDRAW (PASS - within 1 ETH limit)
 npx hardhat --network sepolia task:withdraw --amount "0.01"
 
-# 8. Withdraw over limits — should DENY
+# 6. WITHDRAW (DENY - over 1 ETH limit)
 npx hardhat --network sepolia task:withdraw --amount "2"
 
-# 9. Test the silent freeze
-npx hardhat --network sepolia task:freeze --name "my-first-policy"
-npx hardhat --network sepolia task:withdraw --amount "0.01"   # denied
-npx hardhat --network sepolia task:unfreeze --name "my-first-policy"
-npx hardhat --network sepolia task:withdraw --amount "0.01"   # passes again
+# 7. COMPLIANT TRANSFER (PASS - you are Tier 1, requiring Tier 1)
+npx hardhat --network sepolia task:compliant-transfer --to "0x..." --amount "0.001" --tier 1
+
+# 8. COMPLIANT TRANSFER (DENY - you are Tier 1, requiring Tier 2)
+npx hardhat --network sepolia task:compliant-transfer --to "0x..." --amount "0.001" --tier 2
+
+# 9. THE "PUBLIC SAVINGS" DEMO (User 2 joins the same Vault)
+# Switch to another wallet and create a DIFFERENT policy.
+npx hardhat --network sepolia task:create-policy --name "user2-policy"
+
+# 10. SHARED VAULT, PRIVATE LIMITS
+# User 2 deposits 0.05 ETH. Total Vault balance is now 0.1 ETH.
+# User 2 can only withdraw based on "user2-policy" (e.g. 10 ETH limit).
+# User 1 is still restricted to "my-policy" (1 ETH limit).
+npx hardhat --network sepolia task:deposit --amount "0.05"
+
+# PHASE B: ADMINISTRATIVE POWER
+
+# 9. SILENT FREEZE
+npx hardhat --network sepolia task:freeze --name "my-policy"
+
+# 10. TEST BLOCKED ACTION
+npx hardhat --network sepolia task:withdraw --amount "0.001"
+
+# 11. RESTORE ACCESS
+npx hardhat --network sepolia task:unfreeze --name "my-policy"
+
+# 12. AUDIT READINESS
+# Grant a secondary wallet "Auditor" rights to view your encrypted history.
+npx hardhat --network sepolia task:grant-auditor --name "my-policy" --auditor "0x..."
+
+# PHASE C: INSTITUTIONAL DAO TREASURY (FACTORY MODEL)
+
+# 13. SPAWN INSTITUTION
+# NOTE: Copy the "DAO Address" from the terminal output.
+npx hardhat --network sepolia task:dao-create --name "Institutional Alpha"
+
+# 14. AUTHORIZE INFRASTRUCTURE (ENGINE)
+# Link the new DAO contract address to the Policy Engine "Brain".
+npx hardhat --network sepolia task:authorize-caller --address "PASTE_DAO_ADDRESS"
+
+# 15. REGISTER INFRASTRUCTURE (GATEWAY)
+# Link the new DAO to the Gateway "Firewall".
+npx hardhat --network sepolia task:register-gateway-caller --address "PASTE_DAO_ADDRESS" --name "Alpha-DAO"
+
+# 16. ONBOARD MEMBERS
+# Add your wallet as an official member of the DAO Treasury.
+npx hardhat --network sepolia task:dao-add-member --dao "PASTE_DAO_ADDRESS" --member "PASTE_YOUR_WALLET"
+
+# 17. SHARED DEPOSIT
+npx hardhat --network sepolia task:dao-deposit --dao "PASTE_DAO_ADDRESS" --amount "0.1"
+
+# 18. SHARED WITHDRAWAL (GATED BY PRIVATE QUOTA)
+# You spend from the DAO pool, but the limit is checked against "my-policy".
+npx hardhat --network sepolia task:dao-withdraw --dao "PASTE_DAO_ADDRESS" --amount "0.01"

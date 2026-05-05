@@ -5,20 +5,27 @@ pragma solidity ^0.8.24;
 
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import "@fhevm/solidity/lib/FHE.sol";
-import "./interfaces/ICPEGateway.sol";
-import "./libraries/CPEErrors.sol";
+import "./../interfaces/ICPEGateway.sol";
+import "./../libraries/CPEErrors.sol";
 
 /**
- * @title ConfidentialVault
- * @notice Example downstream contract that integrates with CPE.
- *         Demonstrates how any protocol can gate operations behind encrypted policies.
+ * @title ConfidentialVault (Programmable Anti-Theft / On-Chain 2FA)
+ * @notice An example of a "Secure-by-Design" personal vault.
  *
- * @dev This is a simple ETH vault — deposits are free, withdrawals are
- *      gated by the CPE policy engine. The user never knows the limits,
- *      they just get approved or rejected.
+ * @dev THE "WHY": 
+ *      On traditional blockchains, if your private key is compromised, you lose 100% 
+ *      of your funds instantly. There is no "Daily Limit" or "2FA" on a raw wallet.
  *
- *      Real-world use: replace with ERC-20 transfers, DeFi operations,
- *      DAO treasury spends, RWA transfers, etc.
+ *      The ConfidentialVault solves this by moving funds into an enforcement layer
+ *      gated by the Confidential Policy Engine (CPE). 
+ *
+ *      Value Proposition:
+ *      1. Anti-Drainage: Even if an attacker steals your keys, they are restricted
+ *         by your secret, encrypted daily/per-tx limits.
+ *      2. Zero-Knowledge Security: The attacker cannot see your limits, so they
+ *         cannot "guess" the maximum amount they can steal without triggering a revert.
+ *      3. Silent Protection: The CPE evaluates rules in ciphertext, ensuring the
+ *         security logic itself remains private.
  */
 contract ConfidentialVault is ZamaEthereumConfig {
     ICPEGateway public immutable policyEngine;

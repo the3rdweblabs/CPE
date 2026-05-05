@@ -11,74 +11,67 @@
 [![Code Style: Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-**Encrypted on-chain security policy engine built on Zama FHEVM.**  
-*Policy rules are stored as FHE ciphertext - enforced on-chain, never visible.*
+**CPE is a programmable security layer that enforces encrypted policies entirely in ciphertext.**  
+*Rules are private. Enforcement is on-chain. Security is absolute.*
 
 </div>
 
----
+-
 
-## What Is This?
+## The Vision: Smart-Contract 2FA
 
-CPE is a smart contract system that lets you define security policies for wallet addresses where **the rules themselves
-are encrypted**. Any downstream contract integrates via a single function call to check whether a transaction is
-permitted.
+On traditional blockchains, security is binary: if your private key is leaked, you lose 100% of your funds instantly. There is no "Daily Limit" or "Identity Verification" on a raw wallet.
 
-- Rules stored as `euint64`, `euint8`, `ebool` - encrypted on-chain
-- Policy evaluation runs entirely in ciphertext (no decryption during checks)
-- Address-bound enforcement - the same wallet on MetaMask, Trust Wallet, or CLI hits the same policy
-- Silent freeze - policy freeze is indistinguishable from any other state write
+**The Confidential Policy Engine (CPE)** adds an "Invisible Firewall" to any contract:
+1. **Encrypted Limits**: Set secret daily/per-tx limits that no one-not even a hacker-can see.
+2. **Confidential DAO-as-a-Service**: Spawn institutional-grade treasuries with private member quotas and whitelisting.
+3. **On-Chain 2FA**: Even if an attacker steals your keys, they cannot drain your vault because the CPE blocks unauthorized outflows in ciphertext.
+4. **Privacy-Preserving Compliance**: Gate access based on KYC/AML tiers without ever revealing the user's identity on-chain.
 
----
+## Core Features
 
-## Prerequisites
+### 1. Confidential DAO Factory
+Deploy independent, high-security treasuries in one click. Each DAO is gated by the CPE, allowing for:
+*   **Whitelisted Membership**: Only authorized addresses can interact.
+*   **Private Member Quotas**: Each member has a secret spending limit from the shared pool.
+*   **Encrypted Governance**: Policy rules are evaluated without revealing the treasury's inner logic.
 
+### 2. Programmable Anti-Theft (Vault)
+A personal "Savings Safe" designed to be the ultimate defense against key theft. 
+*   **Ghost Writes**: Policy updates are encrypted, making it impossible for observers to tell if you are tightening or loosening your security.
+*   **Silent Denials**: Unauthorized transactions revert without revealing *why*, preventing attackers from "guessing" your limits.
+
+### 3. Zero-Decryption Auditing
+Built-in "Trust but Verify" model. 
+*   **Auditor Roles**: Grant specific entities (regulators, auditors) the ability to decrypt encrypted logs off-chain.
+*   **2-Step Admin Transfer**: Securely hand over policy control to institutional custodians.
+
+## Technical Architecture
+
+CPE is designed as a **Modular Security Platform**:
+
+*   **ConfidentialPolicyEngine.sol**: The "Brain." Stores encrypted rules and performs homomorphic evaluation.
+*   **CPEGateway.sol**: The "API." Provides a unified interface for downstream contracts (Vaults, DAOs, DEXs).
+*   **ConfidentialDAOFactory.sol**: The "Scale." Allows for multi-tenant institutional deployments.
+*   **AuditLogger.sol**: The "History." Maintains a confidential trail of evaluations for authorized auditors.
+
+## Getting Started
+
+### Prerequisites
 | Tool                         | Version        |
-| ---------------------------- | -------------- |
-| Node.js (LTS, even-numbered) | v18.x or v20.x |
+| - | - |
+| Node.js (LTS)                | v18.x or v20.x |
 | npm                          | v8+            |
-| Git                          | any            |
+| Hardhat                      | latest         |
 
-> ⚠️ **Important**: Hardhat does not support odd-numbered Node versions (v19, v21, v23).  
-> Use `node -v` to check. Use `nvm use 20` to switch if needed.
-
----
-
-## Step 1 - Clone from the FHEVM Template
-
-The recommended way is to use Zama's official Hardhat template as your base - it comes pre-configured with the FHEVM
-Hardhat plugin, mock FHE environment, and test utilities.
-
+### Installation
 ```bash
-# Option A: Use the template on GitHub
-# Go to: https://github.com/zama-ai/fhevm-hardhat-template
-# Click "Use this template" → Create your repo → Clone it
-
-# Option B: Clone directly (for reference/exploration)
-git clone https://github.com/zama-ai/fhevm-hardhat-template CPE
-cd CPE
-```
-
-Then **replace the `contracts/`**, **`test/`**, and **`deploy/`** folders with the CPE files from this repo.
-
----
-
-## Step 2 - Install Dependencies
-
-```bash
+git clone https://github.com/the3rdweblabs/CPE
 npm install
+npm run compile
 ```
 
-This installs:
-
-- `@fhevm/solidity` - FHE Solidity library (FHE.\*, euint64, ebool, etc.)
-- `fhevm` - Hardhat plugin with local FHE mock environment
-- `fhevm-contracts` - Zama's standard contract library
-- `hardhat`, `ethers`, `typechain` - standard dev toolchain
-
----
-
-## Step 3 - Project Structure
+## Project Structure
 
 ```
 CPE/
@@ -91,18 +84,16 @@ CPE/
 │   ├── extensions.json                       # Recommended VS Code extensions (Solidity, ESLint, Prettier)
 │   └── settings.json                         # Workspace formatting & editor settings
 ├── contracts/
-│   ├── AuditLogger.sol                       # On-chain audit log for policy lifecycle events
-│   ├── ConfidentialPolicyEngine.sol          # Core engine: stores & evaluates encrypted policies in ciphertext
-│   ├── ConfidentialVault.sol                 # Example downstream contract: ETH vault gated by CPE policy
-│   ├── CPEGateway.sol                        # Public-facing gateway; abstracts handle materialisation from callers
-│   ├── PolicyRegistry.sol                    # Registry mapping policy IDs to metadata (off-chain indexing aid)
-│   ├── README.md                             # Contracts-level technical reference and NatSpec guide
-│   ├── interfaces/
-│   │   ├── ICPEGateway.sol                   # Interface for CPEGateway (used by integrating contracts)
-│   │   └── IConfidentialPolicyEngine.sol     # Interface for ConfidentialPolicyEngine (used internally & by TestHelper)
-│   ├── libraries/
-│   │   ├── CPEErrors.sol                     # Shared custom error definitions (saves gas vs. revert strings)
-│   │   └── CPERoles.sol                      # Role constants (POLICY_ADMIN, AUDITOR, etc.)
+│   ├── examples/                             # Illustration & Demo integrations
+│   │   ├── ConfidentialVault.sol             # Example: FHE-gated personal withdrawal vault
+│   │   ├── ConfidentialDAO.sol               # Example: Shared treasury with private quotas
+│   │   └── ConfidentialDAOFactory.sol        # Example: Institutional deployment engine
+│   ├── interfaces/                           # Standardized integration interfaces
+│   ├── libraries/                            # Shared error codes and helper functions
+│   ├── AuditLogger.sol                       # Encrypted interaction logger (Auditor role)
+│   ├── ConfidentialPolicyEngine.sol          # Main logic: rule evaluation and access control
+│   ├── CPEGateway.sol                        # Integration surface for downstream apps
+│   ├── PolicyRegistry.sol                    # On-chain storage for encrypted policy handles
 │   └── mocks/
 │       └── TestHelper.sol                    # Test-only fixture: materialises FHE handles via FHE.fromExternal()
 │                                             # and forwards euint64 to the engine; emits Evaluated(ebool) so JS
@@ -112,25 +103,19 @@ CPE/
 │   ├── 01_deploy_cpe.ts                      # Hardhat-deploy script: deploys all contracts and wires permissions
 │   ├── deployment.sepolia.txt                # Real terminal output from the first successful Sepolia deployment:
 │   │                                         # contract addresses, wiring steps, Etherscan verification log.
-│   │                                         # Proof-of-deployment reference — no secrets, safe to commit.
+│   │                                         # Proof-of-deployment reference - no secrets, safe to commit.
 │   └── deployments.sepolia.json              # Machine-readable address manifest consumed by tasks & scripts
 ├── scripts/
 │   └── debug-wiring.ts                       # One-shot debug script: verifies CPEGateway ↔ Vault authorisation
 │                                             # on an already-deployed network (run with: npx hardhat run)
 ├── tasks/
 │   ├── accounts.ts                           # Hardhat task: prints signer addresses and balances
-│   ├── cpe-tasks.ts                          # Hardhat tasks for CPE admin operations: task:wallet,
-│   │                                         # task:create-policy, task:bind-address, task:deposit,
-│   │                                         # task:withdraw, task:freeze, task:unfreeze, task:policy-info
-│   ├── cpe-tasks.txt                         # Ordered copy-paste command guide for a full Sepolia workflow:
-│   │                                         # wallet check → deploy → create policy → bind address →
-│   │                                         # deposit → withdraw (approve & deny) → freeze/unfreeze
-│   └── cpe-tasks-completed.txt               # Real terminal session proving all tasks work on Sepolia live:
-│                                             # actual tx hashes, gas costs, and approve/deny output captured
+│   ├── cpe-tasks.ts                          # Hardhat tasks for CPE: wallet, policy, vault, and institutional DAO ops
+│   ├── cpe-tasks.txt                         # 17-step master guide for a full "A to Z" Sepolia workflow
+│   └── cpe-tasks-completed.txt               # Real terminal session proving all tasks work on Sepolia live
 ├── test/
-│   └── CPE.test.ts                           # Full test suite (28 tests): policy creation, address binding,
-│                                             # encrypted evaluation via Vault & TestHelper, freeze/unfreeze,
-│                                             # rolling daily limits, auditor management, admin transfer
+│   ├── CPE.test.ts                           # Core Engine test suite: limits, freeze, auditing, compliance
+│   └── DAO.test.ts                           # Institutional DAO suite: factory, shared treasury, membership
 ├── vault-dapp/                               # React + Vite frontend demo for ConfidentialVault
 │                                             # See vault-dapp/README.md for setup and usage
 ├── .env.example                              # Template for optional .env variables (RELAYER_URL etc.)
@@ -150,8 +135,6 @@ CPE/
 └── tsconfig.json                             # TypeScript compiler config (moduleResolution: bundler)
 ```
 
----
-
 ## Step 4 - Compile
 
 ```bash
@@ -166,8 +149,6 @@ Compiled 6 Solidity files successfully
 
 If you see `evmVersion` warnings, confirm `hardhat.config.ts` has `evmVersion: "cancun"` - required for transient
 storage used by FHEVM ACL.
-
----
 
 ## Step 5 - Run Tests (Local Mock FHE)
 
@@ -187,27 +168,27 @@ Expected output:
 ```
   ConfidentialPolicyEngine
     Policy Creation
-      ✔ should create a policy with encrypted inputs (304ms)
-      ✔ should emit PolicyCreated event (92ms)
-      ✔ should revert if policy already exists
+      ✔ should create a policy with encrypted inputs (70ms)
+      ✔ should emit PolicyCreated event (45ms)
+      ✔ should revert if policy already exists (129ms)
     Address Binding
       ✔ should bind an address to a policy
       ✔ should confirm hasPolicy returns true for bound address
       ✔ should confirm hasPolicy returns false for unbound address
       ✔ should only allow policy admin to bind addresses
     Policy Evaluation via Vault
-      ✔ should approve a withdrawal within policy limits (113ms)
-      ✔ should deny a withdrawal exceeding per-tx limit (45ms)
-      ✔ should deny withdrawal from address with no policy (89ms)
-      ✔ should deny withdrawal from frozen policy (53ms)
-      ✔ should track rolling daily usage and enforce daily limit (236ms)
+      ✔ should approve a withdrawal within policy limits (44ms)
+      ✔ should deny a withdrawal exceeding per-tx limit (62ms)
+      ✔ should deny withdrawal from address with no policy
+      ✔ should deny withdrawal from frozen policy (40ms)
+      ✔ should track rolling daily usage and enforce daily limit (186ms)
     Freeze / Unfreeze
       ✔ should emit PolicyFrozen on freeze
       ✔ should emit PolicyUnfrozen on unfreeze
       ✔ should only allow policy admin to freeze
     Policy Updates
-      ✔ should update perTxLimit and emit event (46ms)
-      ✔ should not allow non-admin to update policy (54ms)
+      ✔ should update perTxLimit and emit event
+      ✔ should not allow non-admin to update policy
     Auditor Management
       ✔ should grant auditor access
       ✔ should revoke auditor access in mapping
@@ -215,7 +196,7 @@ Expected output:
     Admin Transfer
       ✔ should initiate admin transfer
       ✔ should not allow wrong address to accept transfer
-      ✔ should complete transfer when new admin accepts
+      ✔ should complete transfer when new admin accepts (42ms)
     Caller Authorization
       ✔ should not allow unauthorized caller to call evaluateTransaction
       ✔ should authorize and revoke callers
@@ -224,17 +205,26 @@ Expected output:
       ✔ should pass compliance check for sufficient tier
       ✔ should return false for insufficient compliance tier
 
-  28 passing (1s)
-```
+  Confidential DAO & Factory
+    DAO Factory
+      ✔ should deploy a new DAO and set the correct owner
+      ✔ should track all deployed DAOs for discovery
+    DAO Treasury Operations
+      ✔ should accept deposits into the shared treasury
+      ✔ should deny withdrawal for a non-member
+      ✔ should allow a member to withdraw within their encrypted quota
+      ✔ should deny withdrawal if member exceeds encrypted quota
 
----
+
+  34 passing (1s)
+```
 
 ## Step 6 - Configure for Sepolia Deployment
 
 Set your Hardhat config variables. These are stored securely by Hardhat (not in `.env`):
 
 ```bash
-# Your wallet mnemonic (12-word seed phrase from MetaMask)
+# Your wallet mnemonic (12-word seed phrase i.e. MetaMask, Trust Wallet, etc.)
 npx hardhat vars set MNEMONIC
 
 # Infura project ID (from https://infura.io)
@@ -278,19 +268,18 @@ testing.
 
 Get Sepolia ETH from the faucet:
 
+- https://cloud.google.com/application/web3/faucet/ethereum/sepolia
 - https://sepoliafaucet.com
 - https://faucet.sepolia.dev
 
 Confirm your balance before deploying:
 
 ```bash
-npx hardhat console --network sepolia
+npx hardhat console -network sepolia
 > const [signer] = await ethers.getSigners()
 > ethers.formatEther(await ethers.provider.getBalance(signer.address))
 '0.5'  // need at least ~0.1 ETH for deployment
 ```
-
----
 
 ## Step 7 - Deploy to Sepolia
 
@@ -298,48 +287,37 @@ npx hardhat console --network sepolia
 npm run deploy:sepolia
 ```
 
-Real output from the first Sepolia deployment:
+Real output from the project's Sepolia deployment:
 
 ```
+Compiled 8 Solidity files successfully (evm target: cancun).
+
 ═══════════════════════════════════════════════════════
-  Confidential Policy Engine - Full Deployment
+  Confidential Policy Engine - Full Stack Deployment
 ═══════════════════════════════════════════════════════
   Network:     sepolia
   Deployer:    0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
-  Balance:     0.07500871631430139 ETH
-  KMS Gateway: 0x9D6891A6240D6130c54ae243d8005063D05fE14b
 ═══════════════════════════════════════════════════════
 
-1/5 Deploying PolicyRegistry...
-    ✓ 0x78Ea3E74250041cDe8A5b4282Ab159474731D94A
+1. Deploying Core Protocol...
 
-2/5 Deploying AuditLogger...
-    ✓ 0x4Ce3cddA2E3322f62bF4301ea945e7A32AC1a95E
+2. Deploying Example Integrations...
+    ✓ Vault:   0xE72FccA450A9a0e4EBC1e61A38DC31c481Cff98c
+    ✓ Factory: 0x17493E2Cab0676F50b6aB0b3436de6e47F0E47C3
+    ✓ Demo DAO: 0x55112E95366721b709Afc8fA343747EEf6c3a2ca
 
-3/5 Deploying ConfidentialPolicyEngine...
-    ✓ 0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F
-
-4/5 Deploying CPEGateway...
-    ✓ 0x7EA6400314caA86F27d83970aB77d23f3dEC6A24
-
-5/5 Deploying ConfidentialVault...
-    ✓ 0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C
-
-── Wiring contracts...
-
-    ✓ Registry.authorizeWriter(CPE)
-    ✓ AuditLogger.authorizeLogger(CPE)
-    ✓ CPE.authorizeCaller(Gateway)
-    ✓ Gateway.registerCaller(Vault, "ConfidentialVault v1")
+3. Wiring Infrastructure...
 
 ═══════════════════════════════════════════════════════
   Deployment Complete
 ═══════════════════════════════════════════════════════
-  PolicyRegistry            : 0x78Ea3E74250041cDe8A5b4282Ab159474731D94A
-  AuditLogger               : 0x4Ce3cddA2E3322f62bF4301ea945e7A32AC1a95E
-  ConfidentialPolicyEngine  : 0x37FaDa1148b13dFB5D5b5B1B5eCa5bD1a19C3f8F
-  CPEGateway                : 0x7EA6400314caA86F27d83970aB77d23f3dEC6A24
-  ConfidentialVault         : 0xF3EdA17DAA3830c40E83165A4D4e950771E3b54C
+  PolicyRegistry            : 0x6FFBDcFF78B4C9828d3B31b5EEbf13644DEf210d
+  AuditLogger               : 0xfA0DD0a1Ba7C6C0FaD50fb22961c9AB0db88b614
+  ConfidentialPolicyEngine  : 0x7843ACB0d148e8D5d914ab6c040C50e4eE115d39
+  CPEGateway                : 0x69cc375f1f0F65234fD1309442516BdBd6043429
+  ConfidentialVault         : 0xE72FccA450A9a0e4EBC1e61A38DC31c481Cff98c
+  ConfidentialDAOFactory    : 0x17493E2Cab0676F50b6aB0b3436de6e47F0E47C3
+  ConfidentialDAO           : 0x55112E95366721b709Afc8fA343747EEf6c3a2ca
 
   Saved: ./deploy/deployments.sepolia.json
 ═══════════════════════════════════════════════════════
@@ -347,44 +325,40 @@ Real output from the first Sepolia deployment:
 
 Addresses are saved to `deploy/deployments.sepolia.json`. The full terminal log (including Etherscan verification output) is in [`deploy/deployment.sepolia.txt`](deploy/deployment.sepolia.txt).
 
----
-
 ## Step 8 - Hardhat Task CLI (Quickest Path)
 
 All post-deployment interactions can be done without opening the Hardhat console. The built-in tasks cover the complete admin + user workflow. The ordered command sequence lives in [`tasks/cpe-tasks.txt`](tasks/cpe-tasks.txt):
 
 ```bash
 # 1. Check your wallet balance and signer address
-npx hardhat --network sepolia task:wallet
+npx hardhat -network sepolia task:wallet
 
 # 2. Create a policy (real FHE encryption, sent to Sepolia)
-npx hardhat --network sepolia task:create-policy --name "my-first-policy"
+npx hardhat -network sepolia task:create-policy -name "my-first-policy"
 
 # 3. Bind your wallet to the policy
-npx hardhat --network sepolia task:bind-address --name "my-first-policy"
+npx hardhat -network sepolia task:bind-address -name "my-first-policy"
 
 # 4. Confirm the policy is live
-npx hardhat --network sepolia task:policy-info --name "my-first-policy"
+npx hardhat -network sepolia task:policy-info -name "my-first-policy"
 
 # 5. Deposit ETH into the vault
-npx hardhat --network sepolia task:deposit --amount "0.05"
+npx hardhat -network sepolia task:deposit -amount "0.05"
 
 # 6. Withdraw within limits (perTxLimit = 1 ETH) → APPROVED
-npx hardhat --network sepolia task:withdraw --amount "0.01"
+npx hardhat -network sepolia task:withdraw -amount "0.01"
 
 # 7. Withdraw over limit → DENIED (FHE.req() reverts silently)
-npx hardhat --network sepolia task:withdraw --amount "2"
+npx hardhat -network sepolia task:withdraw -amount "2"
 
 # 8. Test the silent freeze / unfreeze cycle
-npx hardhat --network sepolia task:freeze   --name "my-first-policy"
-npx hardhat --network sepolia task:withdraw --amount "0.01"   # denied
-npx hardhat --network sepolia task:unfreeze --name "my-first-policy"
-npx hardhat --network sepolia task:withdraw --amount "0.01"   # passes again
+npx hardhat -network sepolia task:freeze   -name "my-first-policy"
+npx hardhat -network sepolia task:withdraw -amount "0.01"   # denied
+npx hardhat -network sepolia task:unfreeze -name "my-first-policy"
+npx hardhat -network sepolia task:withdraw -amount "0.01"   # passes again
 ```
 
 A real end-to-end terminal session with tx hashes and gas costs is in [`tasks/cpe-tasks-completed.txt`](tasks/cpe-tasks-completed.txt).
-
----
 
 ## Step 9 - Interact On-Chain via Console (Advanced)
 
@@ -395,7 +369,7 @@ After deployment, here's the full admin workflow using the Hardhat console.
 > Always confirm which Vault you’re using before depositing.
 
 ```bash
-npx hardhat console --network sepolia
+npx hardhat console -network sepolia
 ```
 
 ```typescript
@@ -410,7 +384,7 @@ const vault = await ethers.getContractAt("ConfidentialVault", deployments.contra
 const [admin] = await ethers.getSigners();
 const adminAddr = await admin.getAddress();
 
-// === 1. Create a policy ===
+// 1. Create a policy
 const policyId = ethers.keccak256(ethers.toUtf8Bytes("my-trading-desk"));
 
 const ONE_ETH_IN_GWEI = 1_000_000_000n; // 1 ETH = 1e9 gwei
@@ -435,18 +409,18 @@ const tx1 = await cpe.createPolicy(
 await tx1.wait();
 console.log("Policy created!");
 
-// === 2. Bind your trading wallet ===
+// 2. Bind your trading wallet
 const tradingWallet = "0xYOUR_TRADING_WALLET";
 const tx2 = await cpe.bindAddress(policyId, tradingWallet);
 await tx2.wait();
 console.log("Address bound!");
 
-// === 3. Check policy metadata ===
+// 3. Check policy metadata
 const meta = await cpe.getPolicyMetadata(policyId);
 console.log("Admin:", meta.policyAdmin);
 console.log("Created:", new Date(Number(meta.createdAt) * 1000));
 
-// === 4. Test a withdrawal through the vault ===
+// 4. Test a withdrawal through the vault
 // (From the trading wallet - different signer)
 
 // Encrypt amount in gwei (policy unit), send value in wei (actual transfer unit)
@@ -462,24 +436,24 @@ const tradingEnc = await tradingInput.encrypt();
 // If exceeds any limit or frozen → reverts silently
 await vault.connect(tradingSigner).withdraw(tradingEnc.handles[0], tradingEnc.inputProof, clearAmountWei);
 
-// === 5. Silent freeze ===
+// 5. Silent freeze
 await cpe.freezePolicy(policyId);
 // All subsequent transactions from bound addresses → silently denied
 // On-chain, freeze is indistinguishable from any other state write
 
-// === 6. Grant auditor access ===
+// 6. Grant auditor access
 await cpe.grantAuditor(policyId, "0xAUDITOR_ADDRESS");
 // Auditor can now request off-chain KMS decryption of policy handles
 ```
-
----
 
 ## Integrating CPE into Your Own Contract
 
 Any contract can integrate by inheriting `ZamaEthereumConfig` and calling the `gateway`:
 
 ```solidity
-// SPDX-License-Identifier: GPL-3.0
+// // SPDX-License-Identifier: GPL-3.0
+// Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
+// Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
 pragma solidity ^0.8.24;
 
 import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
@@ -516,8 +490,6 @@ Then register your contract as a Gateway caller (Gateway owner only):
 ```typescript
 await gateway.registerCaller(yourContractAddress, "YourProtocol v1");
 ```
-
----
 
 ## Key FHEVM Concepts to Remember
 
@@ -559,12 +531,10 @@ p.dailyUsed = FHE.select(approved, FHE.add(p.dailyUsed, amount), p.dailyUsed);
 - `FHE.allow(handle, address)` - permanent for specific address
 - `FHE.allowTransient(handle, address)` - this transaction only (used for return values)
 
----
-
 ## Gas Reference (Approximate, Sepolia)
 
 | Operation             | Approx Gas |
-| --------------------- | ---------- |
+| - | - |
 | `createPolicy`        | ~400,000   |
 | `evaluateTransaction` | ~300,000   |
 | `freezePolicy`        | ~80,000    |
@@ -573,8 +543,6 @@ p.dailyUsed = FHE.select(approved, FHE.add(p.dailyUsed, amount), p.dailyUsed);
 
 FHE operations are more expensive than regular Solidity - the coprocessor handles the heavy computation off-chain but
 the symbolic execution still costs gas on L1.
-
----
 
 ## Security Notes
 
@@ -586,8 +554,6 @@ the symbolic execution still costs gas on L1.
 - **clearAmount parameter**: The `withdraw()` function in ConfidentialVault takes both an encrypted amount (for policy
   evaluation) and a `clearAmount` (for the actual ETH transfer). Ensure these match client-side - a mismatch doesn't
   bypass the policy since the encrypted amount is what's checked.
-
----
 
 ## About Zama & FHE Resources
 

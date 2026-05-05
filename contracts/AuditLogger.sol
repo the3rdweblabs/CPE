@@ -475,4 +475,11 @@ contract AuditLogger is ZamaEthereumConfig {
             }
         }
     }
+
+    /**
+     * @notice Returns true if the address is an authorized logger.
+     */
+    function isAuthorizedLogger(address logger) external view returns (bool) {
+        return _authorizedLoggers[logger] || logger == owner;
+    }
 }

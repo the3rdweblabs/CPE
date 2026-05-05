@@ -1,46 +1,77 @@
 # Confidential Policy Engine (CPE) - Smart Contract Architecture
 
-The **Confidential Policy Engine (CPE)** is an on-chain security policy engine built using **Zama's Fully Homomorphic Encryption (FHEVM)**. It allows security rules to be defined for wallet addresses where the rules themselves and the evaluation process remain completely encrypted on-chain.
+The **Confidential Policy Engine (CPE)** is an on-chain security protocol built using **Zama's Fully Homomorphic Encryption (FHEVM)**. It allows security rules to be defined for wallet addresses where the rules themselves, the user's spending history, and the evaluation process remain completely encrypted on-chain.
 
-## High-Level Architecture
+## Directory Structure
 
-The system is designed to separate the policy management (CPE) from the integration layer (Gateway) and the consumer (Downstream Contracts).
+The codebase is organized into **Core Protocol** and **Example Integrations**:
 
-### 1. ConfidentialPolicyEngine.sol (The Core Engine)
+```bash
+contracts/
+├── ConfidentialPolicyEngine.sol  # Main logic: rule evaluation & access control
+├── CPEGateway.sol                # Integration surface for downstream apps
+├── PolicyRegistry.sol            # On-chain storage for encrypted policy handles
+├── AuditLogger.sol               # Encrypted interaction logger (Auditor role)
+├── interfaces/                   # Standardized integration interfaces
+├── libraries/                    # Shared error codes and helper functions
+└── examples/                     # Illustration & Demo integrations
+    ├── ConfidentialVault.sol     # Example: FHE-gated personal withdrawal vault
+    ├── ConfidentialDAO.sol       # Example: Shared treasury with private quotas
+    └── ConfidentialDAOFactory.sol # Example: Institutional deployment engine
+```
+
+---
+
+## Core Protocol Components
+
+### 1. ConfidentialPolicyEngine.sol (The Core)
 - **State Storage:** Stores policy rules in encrypted state (`euint64`, `euint8`, `ebool`).
 - **Encrypted Rules:** Supports financial controls (`perTxLimit`, `dailyLimit`, `monthlyLimit`) and access controls (`riskTier`, `complianceTier`, `frozen`).
-- **Zero-Decryption Evaluation:** Runs policy evaluations entirely in ciphertext. It doesn't decrypt values to check conditions; instead, it uses FHE operations (like `FHE.le`, `FHE.add`, `FHE.and`) to evaluate the encrypted input against the encrypted policy limits.
+- **Zero-Decryption Evaluation:** Runs evaluations entirely in ciphertext. It uses FHE operations (like `FHE.le`, `FHE.add`, `FHE.and`) to evaluate inputs without leaking plaintext data.
 - **Address Binding:** Maps user addresses to a specific `policyId`, making rules address-bound regardless of the client (MetaMask, CLI, etc.).
-- **Auditing & Access Control:** Employs a robust access control mechanism with a 2-step admin transfer and specific Auditor grants that permit off-chain KMS decryption of handles for auditing.
 
 ### 2. CPEGateway.sol (The Router)
-- **Integration Surface:** Acts as the main integration surface for any protocol wanting to use the CPE.
+- **Integration Surface:** The main entry point for any protocol wanting to use the CPE.
 - **Caller Registry:** Maintains a whitelist of downstream contracts.
-- **Rate Limiting:** Implements anti-spam / rate-limiting (e.g., max calls per block per contract) to prevent abuse.
-- **Seamless Upgradability:** Routes `evaluateTransaction` and `evaluateCompliance` calls to the underlying Engine, making the system upgradeable without needing to refactor downstream consumer contracts.
+- **Rate Limiting:** Implements anti-spam mechanisms to prevent co-processor overload.
+- **Upgradability:** Routes calls to the underlying Engine, allowing logic updates without refactoring consumer contracts.
 
-### 3. ConfidentialVault.sol (Example Consumer)
-- **Integration Example:** An example contract showing how a DeFi protocol or wallet could integrate CPE.
-- **Encrypted Execution:** It takes an encrypted withdrawal amount (`encAmount`) and a ZK proof (`inputProof`) alongside a plaintext `clearAmount`.
-- **Enforcement Gate:** Before executing the withdrawal, it asks the Gateway if the transaction is allowed. If the returned encrypted boolean resolves to false, `FHE.req(approved)` silently reverts the transaction, masking whether the failure was due to a limit breach, a freeze, or another rule.
+### 3. PolicyRegistry.sol & AuditLogger.sol
+- **Registry:** Provides a centralized mapping of policy IDs to their plaintext metadata (createdAt, updatedAt, policyAdmin) to aid off-chain indexing and UI display.
+- **AuditLogger:** Employs an encrypted logging mechanism. It allows designated **Auditors** to request KMS decryption of interaction handles for compliance reviews, while keeping them hidden from the general public.
+
+---
+
+## Example Integrations (The "Illustrations")
+
+### 1. ConfidentialVault (Personal Security)
+An example of an individual "Swiss Bank Account." It demonstrates how a user can secure their own funds with an encrypted daily limit. If a user's keys are stolen, the attacker is limited by the encrypted policy stored in the CPE.
+
+### 2. ConfidentialDAO (Institutional Treasury)
+A shared treasury model. Instead of individual balances, it uses a common pool of ETH. Members are granted **encrypted spending quotas** by the DAO Admin. 
+- **Privacy:** Members can withdraw from the treasury without the public (or other members) knowing their total spending limit.
+- **Control:** The DAO Admin can instantly freeze a member's spending power by updating their policy in the CPE.
+
+### 3. DAOFactory
+A deployment engine that allows users to spin up their own `ConfidentialDAO` instances. It establishes a "Confidential DAO-as-a-Service" model, where the CPE acts as the shared security layer for an entire ecosystem of institutions.
+
+---
 
 ## Key FHE Concepts in Use
 
-CPE heavily relies on the specifics of FHEVM to maintain privacy and security:
-
-- **No Decryption During Evaluation:** The engine never uses branching (`if (condition)`) on sensitive data. It relies on `FHE.select(approved, projectedDaily, p.dailyUsed)` to conditionally update state without leaking information.
+- **No Decryption During Evaluation:** The engine never uses branching (`if (condition)`) on sensitive data. It relies on `FHE.select` to conditionally update state without leaking information.
 - **Strict Access Control Lists (ACL):** 
-  - `FHE.allowThis()` is called constantly to grant the smart contract itself permission to operate on newly created ciphertext handles.
-  - `FHE.allowTransient()` is used to pass the evaluation result (`ebool approved`) from the engine, through the gateway, and back to the downstream consumer contract within the same transaction.
-  - `FHE.allow(handle, address)` is utilized to give Auditors explicit read access for off-chain decryption via the KMS.
-- **Silently Updating Values:** For example, when an admin freezes a policy or updates a limit, the value passed is encrypted. The transaction data on-chain does not reveal the new state or the action taken, preserving operational privacy.
+  - `FHE.allowThis()` grants the contract itself permission to operate on ciphertext.
+  - `FHE.allowTransient()` passes the evaluation result (`ebool approved`) back to the consumer.
+  - `FHE.allow(handle, address)` gives Auditors explicit read access for KMS decryption.
+- **Operation Masking:** When an admin freezes a policy, the transaction looks identical to a limit update, preserving operational privacy.
+
+---
 
 ## Evaluation Workflow
 
-1. **Setup:** The Admin creates a policy with encrypted limits and binds a user's wallet address to it.
-2. **Action:** The user attempts an action on a downstream protocol (like withdrawing from `ConfidentialVault`). They encrypt their transaction amount locally and attach a zero-knowledge proof.
-3. **Routing:** The Vault forwards the encrypted amount to the `CPEGateway`, which passes it to the `ConfidentialPolicyEngine`.
-4. **Resolution:** The engine executes the FHE math, checking limits and counters. It returns an encrypted boolean indicating whether the operation is approved.
-5. **Enforcement:** The Vault calls `FHE.req(approved)` on the returned boolean. If the FHE co-processor determines the boolean is false, the transaction halts silently.
-
-> **Note:** Because of the `CPEGateway`, this architecture is highly modular. You can connect numerous custom protocols (DeFi, RWAs, DAO Treasuries) to a single centralized, encrypted policy engine for a user.
+1. **Setup:** Admin creates a policy with encrypted limits and binds a user's wallet address.
+2. **Action:** User attempts a withdrawal from `ConfidentialVault` or `ConfidentialDAO`. They encrypt the amount locally and attach a ZK proof.
+3. **Routing:** The consumer forwards the encrypted amount to the `CPEGateway`, which passes it to the `ConfidentialPolicyEngine`.
+4. **Resolution:** The engine executes the FHE math and returns an `ebool approved`.
+5. **Enforcement:** The consumer calls `FHE.req(approved)`. If false, the transaction reverts silently.
