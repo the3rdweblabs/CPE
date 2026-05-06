@@ -384,9 +384,15 @@ export default function VaultDashboard() {
             </div>
 
             <div className="card card--accent">
-              <div className="panel-title">
-                ⬆️ Withdraw
-                <span className="badge badge-fhe">🔐 FHE</span>
+              <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>⬆️ Withdraw</span>
+                {fhevm.loading ? (
+                  <span className="badge badge-muted">⏳ Loading FHE...</span>
+                ) : !fhevm.instance ? (
+                  <span className="badge badge-err" title={fhevm.error || "FHE failed to initialize"}>❌ FHE Offline</span>
+                ) : (
+                  <span className="badge badge-fhe">🔐 FHE Online</span>
+                )}
               </div>
               <div className="field" style={{ marginBottom: 12 }}>
                 <input
@@ -402,7 +408,7 @@ export default function VaultDashboard() {
                 disabled={isBusy || !withdrawAmt || !fhevm.instance}
                 style={{ width: '100%' }}
               >
-                Withdraw (FHE)
+                {fhevm.loading ? 'Initializing FHE...' : 'Withdraw (FHE)'}
               </button>
             </div>
           </>
@@ -445,7 +451,16 @@ export default function VaultDashboard() {
             </div>
 
             <div className="card card--accent">
-              <div className="panel-title">🏛️ Spend from DAO <span className="badge badge-fhe">🔐 FHE</span></div>
+              <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>🏛️ Spend from DAO</span>
+                {fhevm.loading ? (
+                  <span className="badge badge-muted">⏳ Loading FHE...</span>
+                ) : !fhevm.instance ? (
+                  <span className="badge badge-err" title={fhevm.error || "FHE failed to initialize"}>❌ FHE Offline</span>
+                ) : (
+                  <span className="badge badge-fhe">🔐 FHE Online</span>
+                )}
+              </div>
               <div className="field" style={{ marginBottom: 12 }}>
                 <input
                   type="number"
@@ -460,7 +475,7 @@ export default function VaultDashboard() {
                 disabled={isBusy || !daoWithdrawAmt || !fhevm.instance}
                 style={{ width: '100%' }}
               >
-                Withdraw from DAO
+                {fhevm.loading ? 'Initializing FHE...' : 'Withdraw from DAO'}
               </button>
             </div>
 
