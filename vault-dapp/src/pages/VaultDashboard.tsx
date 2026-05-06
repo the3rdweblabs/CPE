@@ -10,24 +10,43 @@ import { useDiscovery } from '../hooks/useDiscovery';
 import { Contract } from 'ethers';
 import { ADDRESSES } from '../contracts/addresses';
 import { REGISTRY_ABI, LOGGER_ABI, CPE_ABI } from '../contracts/abis';
+import {
+  User,
+  Building2,
+  ScrollText,
+  ShieldCheck,
+  LockKeyhole,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Wallet,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Sparkles,
+  History,
+  Snowflake,
+  Activity,
+  RefreshCw,
+} from 'lucide-react';
 
 /* Small shared components */
 
 function TxBanner({ status, txHash, error }: { status: string; txHash: string | null; error: string | null }) {
   if (status === 'idle') return null;
 
-  const map: Record<string, { cls: string; msg: string }> = {
-    encrypting: { cls: 'encrypting', msg: '🔐 FHE-encrypting your amount…' },
-    pending: { cls: 'pending', msg: '⏳ Transaction pending…' },
-    success: { cls: 'success', msg: '✅ Transaction confirmed!' },
-    denied: { cls: 'denied', msg: '🚫 Policy denied - FHE check failed (over limit or frozen).' },
-    error: { cls: 'error', msg: `❌ ${error ?? 'Transaction failed.'}` },
+  const iconStyle = { width: 16, height: 16, display: 'inline', verticalAlign: 'middle', marginRight: 6 };
+  const map: Record<string, { cls: string; icon: React.ReactNode; msg: string }> = {
+    encrypting: { cls: 'encrypting', icon: <LockKeyhole style={iconStyle} aria-hidden="true" />, msg: 'FHE-encrypting your amount…' },
+    pending: { cls: 'pending', icon: <Loader2 style={{ ...iconStyle, animation: 'spin 1s linear infinite' }} aria-hidden="true" />, msg: 'Transaction pending…' },
+    success: { cls: 'success', icon: <CheckCircle2 style={iconStyle} aria-hidden="true" />, msg: 'Transaction confirmed!' },
+    denied: { cls: 'denied', icon: <XCircle style={iconStyle} aria-hidden="true" />, msg: 'Policy denied - FHE check failed (over limit or frozen).' },
+    error: { cls: 'error', icon: <XCircle style={iconStyle} aria-hidden="true" />, msg: error ?? 'Transaction failed.' },
   };
 
-  const { cls, msg } = map[status] ?? map.error;
+  const { cls, icon, msg } = map[status] ?? map.error;
   return (
     <div className={`tx-banner tx-banner--${cls}`}>
-      <span>{msg}</span>
+      <span style={{ display: 'flex', alignItems: 'center' }}>{icon}{msg}</span>
       {txHash && (
         <a href={`${SEPOLIA_EXPLORER}/tx/${txHash}`} target="_blank" rel="noreferrer">
           View on Etherscan ↗
@@ -183,7 +202,7 @@ export default function VaultDashboard() {
   if (isScanning) {
     return (
       <div className="dashboard fade-up" style={{ textAlign: 'center', paddingTop: 100 }}>
-        <span className="spin" style={{ fontSize: 40 }}>⟳</span>
+        <Loader2 className="spin" size={40} aria-label="Loading" />
         <h2 style={{ marginTop: 24 }}>Discovering your Confidential DAOs...</h2>
         <p style={{ color: 'var(--text-muted)' }}>Scanning the CPE registry for your active policies.</p>
       </div>
@@ -201,26 +220,30 @@ export default function VaultDashboard() {
               className={`btn btn-sm ${activeTab === 'personal' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setactiveTab('personal')}
             >
-              👤 Personal
+              <User size={14} aria-hidden="true" style={{ marginRight: 4 }} />
+              <span>Personal</span>
             </button>
             <button
               className={`btn btn-sm ${activeTab === 'dao' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setactiveTab('dao')}
             >
-              🏛️ DAO
+              <Building2 size={14} aria-hidden="true" style={{ marginRight: 4 }} />
+              <span>DAO</span>
             </button>
             <button
               className={`btn btn-sm ${activeTab === 'policies' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setactiveTab('policies')}
             >
-              📜 Policies
+              <ScrollText size={14} aria-hidden="true" style={{ marginRight: 4 }} />
+              <span>Policies</span>
             </button>
             {isAdmin && (
               <button
                 className={`btn btn-sm ${activeTab === 'admin' ? 'btn-primary' : 'btn-ghost'}`}
                 onClick={() => setactiveTab('admin')}
               >
-                🛡️ Admin
+                <ShieldCheck size={14} aria-hidden="true" style={{ marginRight: 4 }} />
+                <span>Admin</span>
               </button>
             )}
           </div>
@@ -255,29 +278,31 @@ export default function VaultDashboard() {
             vault.refreshPolicy(address);
             vault.refreshTreasury();
           }}
+          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
         >
-          ⟳ Refresh
+          <RefreshCw size={14} aria-hidden="true" />
+          <span>Refresh</span>
         </button>
       </div>
 
       <div className="dashboard__grid">
         {/* 1. Account Info */}
         <div className="card">
-          <div className="panel-title">👤 Account Balance</div>
+          <div className="panel-title"><User size={16} aria-hidden="true" style={{ marginRight: 6 }} />Account Balance</div>
           <div className="balance-val">{vault.balance ?? '0.00'} ETH</div>
           <div className="balance-sub">Internal Vault Ledger</div>
         </div>
 
         {/* 2. DAO Treasury */}
         <div className="card">
-          <div className="panel-title">🏛️ DAO Treasury</div>
+          <div className="panel-title"><Building2 size={16} aria-hidden="true" style={{ marginRight: 6 }} />DAO Treasury</div>
           <div className="balance-val">{vault.daoBalance ?? '0.00'} ETH</div>
           <div className="balance-sub">Shared Corporate Pool</div>
         </div>
 
         {/* 3. Policy Info */}
         <div className="card span-2 card--accent">
-          <div className="panel-title">🛡️ Policy Enforcement (FHE)</div>
+          <div className="panel-title"><ShieldCheck size={16} aria-hidden="true" style={{ marginRight: 6 }} />Policy Enforcement (FHE)</div>
           {!vault.hasPolicy ? (
             <div style={{ textAlign: 'center', padding: '12px 0' }}>
               <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
@@ -317,7 +342,7 @@ export default function VaultDashboard() {
         {activeTab === 'personal' && (
           <>
             <div className="card card--accent">
-              <div className="panel-title">💰 Personal Balance</div>
+              <div className="panel-title"><Wallet size={16} aria-hidden="true" style={{ marginRight: 6 }} />Personal Balance</div>
               <div className="balance-val">
                 {vault.balance !== null ? `${Number(vault.balance).toFixed(6)}` : '-'}
               </div>
@@ -329,7 +354,7 @@ export default function VaultDashboard() {
             </div>
 
             <div className="card">
-              <div className="panel-title">🛡️ Policy Status</div>
+              <div className="panel-title"><ShieldCheck size={16} aria-hidden="true" style={{ marginRight: 6 }} />Policy Status</div>
               {vault.hasPolicy === null ? (
                 <div className="balance-sub">Loading…</div>
               ) : vault.hasPolicy ? (
@@ -364,7 +389,7 @@ export default function VaultDashboard() {
             </div>
 
             <div className="card">
-              <div className="panel-title">⬇️ Deposit ETH</div>
+              <div className="panel-title"><ArrowDownToLine size={16} aria-hidden="true" style={{ marginRight: 6 }} />Deposit ETH</div>
               <div className="field" style={{ marginBottom: 12 }}>
                 <input
                   type="number"
@@ -385,8 +410,9 @@ export default function VaultDashboard() {
 
             <div className="card card--accent">
               <div className="panel-title">
-                ⬆️ Withdraw
-                <span className="badge badge-fhe">🔐 FHE</span>
+                <ArrowUpFromLine size={16} aria-hidden="true" style={{ marginRight: 6 }} />
+                Withdraw
+                <span className="badge badge-fhe"><LockKeyhole size={12} aria-hidden="true" style={{ marginRight: 4 }} />FHE</span>
               </div>
               <div className="field" style={{ marginBottom: 12 }}>
                 <input
@@ -411,7 +437,7 @@ export default function VaultDashboard() {
         {activeTab === 'dao' && (
           <>
             <div className="card card--accent span-2">
-              <div className="panel-title">🏛️ DAO Treasury Pool</div>
+              <div className="panel-title"><Building2 size={16} aria-hidden="true" style={{ marginRight: 6 }} />DAO Treasury Pool</div>
               <div className="balance-val">
                 {vault.daoBalance !== null ? `${Number(vault.daoBalance).toFixed(4)}` : '0.0000'}
               </div>
@@ -425,7 +451,7 @@ export default function VaultDashboard() {
             </div>
 
             <div className="card">
-              <div className="panel-title">🏛️ Contribute to DAO</div>
+              <div className="panel-title"><Building2 size={16} aria-hidden="true" style={{ marginRight: 6 }} />Contribute to DAO</div>
               <div className="field" style={{ marginBottom: 12 }}>
                 <input
                   type="number"
@@ -445,7 +471,7 @@ export default function VaultDashboard() {
             </div>
 
             <div className="card card--accent">
-              <div className="panel-title">🏛️ Spend from DAO <span className="badge badge-fhe">🔐 FHE</span></div>
+              <div className="panel-title"><Building2 size={16} aria-hidden="true" style={{ marginRight: 6 }} />Spend from DAO <span className="badge badge-fhe"><LockKeyhole size={12} aria-hidden="true" style={{ marginRight: 4 }} />FHE</span></div>
               <div className="field" style={{ marginBottom: 12 }}>
                 <input
                   type="number"
@@ -464,9 +490,9 @@ export default function VaultDashboard() {
               </button>
             </div>
 
-            /* NEW: Create DAO CTA */
+            {/* NEW: Create DAO CTA */}
             <div className="card span-2" style={{ border: '1px dashed var(--accent)', background: 'rgba(168, 85, 247, 0.05)' }}>
-              <div className="panel-title">✨ Create Your Own Institution</div>
+              <div className="panel-title"><Sparkles size={16} aria-hidden="true" style={{ marginRight: 6 }} />Create Your Own Institution</div>
               <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
                 <input
                   placeholder="DAO Name (e.g. Zama Investors)"
@@ -484,7 +510,7 @@ export default function VaultDashboard() {
 
         {activeTab === 'policies' && (
           <div className="card span-2 fade-up">
-            <div className="panel-title">📜 Discovered Policies & DAOs</div>
+            <div className="panel-title"><ScrollText size={16} aria-hidden="true" style={{ marginRight: 6 }} />Discovered Policies & DAOs</div>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
               These are the confidential DAOs where you are a member or admin.
               Click "Switch" to view specific treasury and admin controls.
@@ -538,7 +564,7 @@ export default function VaultDashboard() {
         {activeTab === 'admin' && (
           <>
             <div className="card span-2">
-              <div className="panel-title">🛡️ Policy Administration</div>
+              <div className="panel-title"><ShieldCheck size={16} aria-hidden="true" style={{ marginRight: 6 }} />Policy Administration</div>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
                 Manage member access and security policies for the institution.
               </p>
@@ -571,7 +597,7 @@ export default function VaultDashboard() {
             </div>
 
             <div className="card">
-              <div className="panel-title">🧊 Emergency Control</div>
+              <div className="panel-title"><Snowflake size={16} aria-hidden="true" style={{ marginRight: 6 }} />Emergency Control</div>
               <button
                 className="btn btn-outline"
                 onClick={handleFreeze}
@@ -591,7 +617,7 @@ export default function VaultDashboard() {
             </div>
 
             <div className="card span-2">
-              <div className="panel-title">📡 Protocol Health Diagnostics</div>
+              <div className="panel-title"><Activity size={16} aria-hidden="true" style={{ marginRight: 6 }} />Protocol Health Diagnostics</div>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
                 Verify the integrity of the CPE-Gateway-Infrastructure trust chain.
               </p>
@@ -615,7 +641,7 @@ export default function VaultDashboard() {
 
         {/* 7. TX History */}
         <div className="card span-2">
-          <div className="panel-title">📜 Transaction History</div>
+          <div className="panel-title"><History size={16} aria-hidden="true" style={{ marginRight: 6 }} />Transaction History</div>
           <TxBanner status={vault.txStatus} txHash={vault.txHash} error={vault.txError} />
           {vault.txHistory.length === 0 ? (
             <div className="tx-empty">No transactions yet.</div>

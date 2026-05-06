@@ -2,35 +2,44 @@
 // Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
 // Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
 import { Link } from 'react-router-dom';
+import {
+  LockKeyhole,
+  Link as LinkIcon,
+  Snowflake,
+  Puzzle,
+  ClipboardCheck,
+  Scale,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-const FEATURES = [
+const FEATURES: { Icon: LucideIcon; title: string; desc: string }[] = [
   {
-    icon: '🔐',
+    Icon: LockKeyhole,
     title: 'Rules stored as ciphertext',
     desc:  'perTxLimit, dailyLimit, monthlyLimit, riskTier - all encrypted as euint64/euint8 on-chain. No observer can read the policy.',
   },
   {
-    icon: '🔗',
+    Icon: LinkIcon,
     title: 'Address-bound enforcement',
     desc:  'Same wallet on MetaMask, Trust Wallet, or a raw CLI call hits the exact same encrypted policy. Session-agnostic.',
   },
   {
-    icon: '🧊',
+    Icon: Snowflake,
     title: 'Silent freeze',
     desc:  'A policy freeze is stored as an encrypted boolean. On-chain it is indistinguishable from any other state write.',
   },
   {
-    icon: '🧩',
+    Icon: Puzzle,
     title: 'One-line integration',
     desc:  'Downstream contracts call gateway.evaluateTransaction() and gate with FHE.req(approved). Drop-in for any protocol.',
   },
   {
-    icon: '📋',
+    Icon: ClipboardCheck,
     title: 'Encrypted audit trail',
     desc:  'AuditLogger stores evaluation results as FHE handles. Only authorised auditors can request KMS decryption.',
   },
   {
-    icon: '⚖️',
+    Icon: Scale,
     title: 'Compliance gating',
     desc:  'evaluateCompliance() checks the user\'s encrypted KYC tier against a plaintext requirement - no tier revealed on-chain.',
   },
@@ -42,7 +51,8 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="hero fade-up">
         <div className="hero__eyebrow">
-          🔒 Powered by Zama FHEVM
+          <img src="/zama-logo.png" alt="Zama" width={18} height={18} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+          Powered by Zama FHEVM
         </div>
 
         <h1 className="hero__title">
@@ -75,7 +85,9 @@ export default function LandingPage() {
         <div className="features__grid">
           {FEATURES.map(f => (
             <div key={f.title} className="card fade-up">
-              <div className="feature-card__icon">{f.icon}</div>
+              <div className="feature-card__icon">
+                <f.Icon size={28} aria-hidden="true" />
+              </div>
               <div className="feature-card__title">{f.title}</div>
               <p className="feature-card__desc">{f.desc}</p>
             </div>
