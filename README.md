@@ -16,8 +16,6 @@
 
 </div>
 
--
-
 ## The Vision: Smart-Contract 2FA
 
 On traditional blockchains, security is binary: if your private key is leaked, you lose 100% of your funds instantly. There is no "Daily Limit" or "Identity Verification" on a raw wallet.
