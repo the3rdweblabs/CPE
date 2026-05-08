@@ -9,6 +9,11 @@ export default defineConfig({
   build: {
     target: 'esnext', // required for top-level await (WASM loading)
   },
+  resolve: {
+    alias: {
+      'qr': '/src/patched-qr.js',
+    },
+  },
   optimizeDeps: {
     esbuildOptions: {
       target: 'esnext',

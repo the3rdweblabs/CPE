@@ -401,10 +401,14 @@ export function useVault() {
       const dailyLimit = 5_000_000_000n;
       const monthlyLimit = 10_000_000_000n;
 
+      const p = getProvider();
+      const signer = await p.getSigner();
+      const signerAddress = await signer.getAddress();
+
       setTxStatus('encrypting');
       const input = fhevmInstance.createEncryptedInput(
         ADDRESSES.ConfidentialPolicyEngine,
-        userAddress,
+        signerAddress,
       );
       input.add64(perTxLimit);
       input.add64(dailyLimit);
