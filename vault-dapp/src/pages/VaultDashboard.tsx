@@ -69,6 +69,12 @@ export default function VaultDashboard() {
   // local UI state
   const [activeTab, setactiveTab] = useState<'personal' | 'dao' | 'policies' | 'admin'>('personal');
   const [isScanning, setIsScanning] = useState(true);
+  const [newPolicyName, setNewPolicyName] = useState('my-policy');
+  const [perTxLimit, setPerTxLimit] = useState('1.0');
+  const [dailyLimit, setDailyLimit] = useState('5.0');
+  const [monthlyLimit, setMonthlyLimit] = useState('10.0');
+  const [riskTier, setRiskTier] = useState('1');
+  const [complianceTier, setComplianceTier] = useState('1');
 
   // local form state
   const [depositAmt, setDepositAmt] = useState('');
@@ -90,8 +96,9 @@ export default function VaultDashboard() {
       if (!address) return;
       setIsScanning(true);
 
-      // 1. Scan for DAOs
+      // 1. Scan for DAOs & Policies
       const found = await discovery.scanForDAOs(address);
+      await discovery.scanForPolicies(address);
 
       // 2. Auto-select first DAO found (if any)
       if (found.length > 0) {
@@ -117,8 +124,23 @@ export default function VaultDashboard() {
 
   async function handleOnboard() {
     if (!address || !fhevm.instance) return;
-    await vault.onboardUser(address, fhevm.instance);
-    if (address) vault.refreshPolicy(address);
+    const perTxGwei = BigInt(Math.round((parseFloat(perTxLimit) || 1.0) * 1_000_000_000));
+    const dailyGwei = BigInt(Math.round((parseFloat(dailyLimit) || 5.0) * 1_000_000_000));
+    const monthlyGwei = BigInt(Math.round((parseFloat(monthlyLimit) || 10.0) * 1_000_000_000));
+    const riskVal = parseInt(riskTier, 10) || 1;
+    const complianceVal = parseInt(complianceTier, 10) || 1;
+
+    await vault.onboardUser(address, newPolicyName, fhevm.instance, {
+      perTxLimit: perTxGwei,
+      dailyLimit: dailyGwei,
+      monthlyLimit: monthlyGwei,
+      riskTier: riskVal,
+      complianceTier: complianceVal,
+    });
+    if (address) {
+      vault.refreshPolicy(address);
+      discovery.scanForPolicies(address);
+    }
   }
 
   async function handleDeposit() {
@@ -166,7 +188,7 @@ export default function VaultDashboard() {
 
   async function handleBindUser() {
     if (!manageSubject || !managePolicyId) return;
-    await vault.onboardUser(manageSubject, fhevm.instance!);
+    await vault.bindAddress(managePolicyId, manageSubject);
     setManageSubject('');
     setManagePolicyId('');
   }
@@ -311,7 +333,71 @@ export default function VaultDashboard() {
               <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
                 You don't have an active policy bound to this vault.
               </p>
-              <button className="btn btn-primary" onClick={handleOnboard} disabled={isBusy}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, maxWidth: 500, margin: '0 auto 16px', textAlign: 'left' }}>
+                <div className="field" style={{ gridColumn: 'span 2' }}>
+                  <label>Policy Name</label>
+                  <input
+                    placeholder="e.g. My Secure Policy"
+                    value={newPolicyName}
+                    onChange={e => setNewPolicyName(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Per-Tx Limit (ETH)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="1.0"
+                    value={perTxLimit}
+                    onChange={e => setPerTxLimit(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Daily Limit (ETH)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="5.0"
+                    value={dailyLimit}
+                    onChange={e => setDailyLimit(e.target.value)}
+                  />
+                </div>
+                <div className="field" style={{ gridColumn: 'span 2' }}>
+                  <label>Monthly Limit (ETH)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="10.0"
+                    value={monthlyLimit}
+                    onChange={e => setMonthlyLimit(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Risk Tier</label>
+                  <select
+                    value={riskTier}
+                    onChange={e => setRiskTier(e.target.value)}
+                    style={{ width: '100%', padding: '8px', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 6, color: '#fff' }}
+                  >
+                    <option value="1">Tier 1 (Standard)</option>
+                    <option value="2">Tier 2 (High)</option>
+                    <option value="3">Tier 3 (Institutional)</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Compliance Tier</label>
+                  <select
+                    value={complianceTier}
+                    onChange={e => setComplianceTier(e.target.value)}
+                    style={{ width: '100%', padding: '8px', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 6, color: '#fff' }}
+                  >
+                    <option value="1">Level 1 (KYC)</option>
+                    <option value="2">Level 2 (Accredited)</option>
+                    <option value="3">Level 3 (AML Cleared)</option>
+                  </select>
+                </div>
+              </div>
+              <button className="btn btn-primary" onClick={handleOnboard} disabled={isBusy || !newPolicyName}>
                 Onboard & Create Policy
               </button>
             </div>
@@ -379,10 +465,78 @@ export default function VaultDashboard() {
                   <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, marginBottom: 16 }}>
                     Initialize your demo account to set up your encrypted security limits.
                   </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                    <div className="field">
+                      <label>Policy Name</label>
+                      <input
+                        placeholder="e.g. My Secure Policy"
+                        value={newPolicyName}
+                        onChange={e => setNewPolicyName(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div className="field">
+                        <label>Per-Tx (ETH)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          placeholder="1.0"
+                          value={perTxLimit}
+                          onChange={e => setPerTxLimit(e.target.value)}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Daily (ETH)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          placeholder="5.0"
+                          value={dailyLimit}
+                          onChange={e => setDailyLimit(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="field">
+                      <label>Monthly Limit (ETH)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        placeholder="10.0"
+                        value={monthlyLimit}
+                        onChange={e => setMonthlyLimit(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div className="field">
+                        <label>Risk Tier</label>
+                        <select
+                          value={riskTier}
+                          onChange={e => setRiskTier(e.target.value)}
+                          style={{ width: '100%', padding: '6px', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 4, color: '#fff' }}
+                        >
+                          <option value="1">Tier 1</option>
+                          <option value="2">Tier 2</option>
+                          <option value="3">Tier 3</option>
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label>Compliance</label>
+                        <select
+                          value={complianceTier}
+                          onChange={e => setComplianceTier(e.target.value)}
+                          style={{ width: '100%', padding: '6px', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 4, color: '#fff' }}
+                        >
+                          <option value="1">Level 1</option>
+                          <option value="2">Level 2</option>
+                          <option value="3">Level 3</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={handleOnboard}
-                    disabled={isBusy || fhevm.loading || !fhevm.instance}
+                    disabled={isBusy || fhevm.loading || !fhevm.instance || !newPolicyName}
                     style={{ width: '100%' }}
                   >
                     Initialize Account
@@ -528,53 +682,119 @@ export default function VaultDashboard() {
         {activeTab === 'policies' && (
           <div className="card span-2 fade-up">
             <div className="panel-title"><ScrollText size={16} aria-hidden="true" style={{ marginRight: 6 }} />Discovered Policies & DAOs</div>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-              These are the confidential DAOs where you are a member or admin.
-              Click "Switch" to view specific treasury and admin controls.
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
+              These are the confidential DAOs and custom policies associated with your address.
+              Click "Switch" or "Bind" to use them.
             </p>
 
-            {discovery.foundDAOs.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', background: 'rgba(0,0,0,0.2)', borderRadius: 8 }}>
-                <p style={{ color: 'var(--text-muted)' }}>No policies discovered yet.</p>
-                <button className="btn btn-sm btn-outline" style={{ marginTop: 12 }} onClick={() => address && discovery.scanForDAOs(address)}>
-                  Scan Registry
-                </button>
-              </div>
-            ) : (
-              <div className="tx-list">
-                {discovery.foundDAOs.map(dao => (
-                  <div key={dao.address} className="tx-item" style={{ padding: '16px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <span style={{ fontWeight: 600, fontSize: 14 }}>{dao.name}</span>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <code style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dao.address.slice(0, 12)}...</code>
-                        <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>
-                          Created: {new Date(dao.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span className={`badge ${dao.role === 'admin' ? 'badge-fhe' : 'badge-ok'}`}>
-                        {dao.role === 'admin' ? 'Policy Admin' : 'Member'}
-                      </span>
-                      {vault.selectedDAO === dao.address ? (
-                        <span className="badge badge-muted">Active</span>
-                      ) : (
-                        <button
-                          className="btn btn-sm btn-primary"
-                          onClick={() => {
-                            vault.setSelectedDAO(dao.address);
-                            setactiveTab(dao.role === 'admin' ? 'admin' : 'dao');
-                          }}
-                        >
-                          Switch
-                        </button>
-                      )}
-                    </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              {/* Policies Column */}
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ScrollText size={16} style={{ color: 'var(--accent)' }} /> Custom Policies
+                </h3>
+                {discovery.foundPolicies.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px 0', background: 'rgba(0,0,0,0.2)', borderRadius: 8 }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No custom policies discovered.</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="tx-list">
+                    {discovery.foundPolicies.map(policy => (
+                      <div key={policy.id} className="tx-item" style={{ padding: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{policy.name}</span>
+                          <code style={{ fontSize: 10, color: 'var(--text-muted)' }}>{policy.id.slice(0, 14)}...</code>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className={`badge ${policy.role === 'admin' ? 'badge-fhe' : 'badge-ok'}`} style={{ fontSize: 9 }}>
+                            {policy.role === 'admin' ? 'Admin' : 'Subject'}
+                          </span>
+                          {vault.policyId === policy.id ? (
+                            <span className="badge badge-muted" style={{ fontSize: 9 }}>Active</span>
+                          ) : (
+                            <button
+                              className="btn btn-sm btn-primary"
+                              onClick={async () => {
+                                if (address) {
+                                  await vault.bindAddress(policy.id, address);
+                                  await vault.refreshPolicy(address);
+                                }
+                              }}
+                              style={{ padding: '3px 8px', fontSize: 11 }}
+                            >
+                              Bind
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Create a brand new policy option right here */}
+                <div style={{ marginTop: 16, background: 'rgba(255, 255, 255, 0.02)', padding: 12, borderRadius: 8, border: '1px dashed var(--border)' }}>
+                  <h4 style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Create Another Policy</h4>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      placeholder="Policy Name"
+                      value={newPolicyName}
+                      onChange={e => setNewPolicyName(e.target.value)}
+                      style={{ flex: 1, padding: '4px 8px', fontSize: 12, background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: 4, color: '#fff' }}
+                    />
+                    <button 
+                      className="btn btn-sm btn-primary" 
+                      onClick={handleOnboard} 
+                      disabled={isBusy || !newPolicyName || fhevm.loading || !fhevm.instance}
+                      style={{ padding: '4px 12px' }}
+                    >
+                      Onboard
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
+
+              {/* DAOs Column */}
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Building2 size={16} style={{ color: 'var(--accent)' }} /> Confidential DAOs
+                </h3>
+                {discovery.foundDAOs.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px 0', background: 'rgba(0,0,0,0.2)', borderRadius: 8 }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No DAOs discovered yet.</p>
+                  </div>
+                ) : (
+                  <div className="tx-list">
+                    {discovery.foundDAOs.map(dao => (
+                      <div key={dao.address} className="tx-item" style={{ padding: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{dao.name}</span>
+                          <code style={{ fontSize: 10, color: 'var(--text-muted)' }}>{dao.address.slice(0, 14)}...</code>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className={`badge ${dao.role === 'admin' ? 'badge-fhe' : 'badge-ok'}`} style={{ fontSize: 9 }}>
+                            {dao.role === 'admin' ? 'Admin' : 'Member'}
+                          </span>
+                          {vault.selectedDAO === dao.address ? (
+                            <span className="badge badge-muted" style={{ fontSize: 9 }}>Active</span>
+                          ) : (
+                            <button
+                              className="btn btn-sm btn-primary"
+                              onClick={() => {
+                                vault.setSelectedDAO(dao.address);
+                                setactiveTab(dao.role === 'admin' ? 'admin' : 'dao');
+                              }}
+                              style={{ padding: '3px 8px', fontSize: 11 }}
+                            >
+                              Switch
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

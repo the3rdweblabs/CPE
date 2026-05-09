@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 // SPDX-License-Identifier: GPL-3.0
 // Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
 // Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
@@ -5,7 +6,9 @@ import './polyfills';
 import '@rainbow-me/rainbowkit/styles.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, lightTheme, createAuthenticationAdapter, RainbowKitAuthenticationProvider } from '@rainbow-me/rainbowkit';
+import { createSiweMessage } from 'viem/siwe';
+import { useState, useMemo } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { wagmiConfig } from './wagmi';
@@ -45,6 +48,60 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
+function generateNonce() {
+  return Math.random().toString(36).substring(2);
+}
+
+function AppWithAuth() {
+  const [authStatus, setAuthStatus] = useState<'loading' | 'unauthenticated' | 'authenticated'>(() => {
+    try {
+      const saved = window.localStorage.getItem('auth_state');
+      return saved === 'authenticated' ? 'authenticated' : 'unauthenticated';
+    } catch {
+      return 'unauthenticated';
+    }
+  });
+
+  const authenticationAdapter = useMemo(() => createAuthenticationAdapter({
+    getNonce: async () => {
+      return generateNonce();
+    },
+    createMessage: ({ nonce, address, chainId }) => {
+      return createSiweMessage({
+        domain: window.location.host,
+        address,
+        statement: 'Sign in with Ethereum to access the Confidential Policy Engine.',
+        uri: window.location.origin,
+        version: '1',
+        chainId,
+        nonce,
+      });
+    },
+    verify: async ({ signature }) => {
+      console.log('SIWE Signature Verified:', signature);
+      setAuthStatus('authenticated');
+      try {
+        window.localStorage.setItem('auth_state', 'authenticated');
+      } catch { /* ignore */ }
+      return true;
+    },
+    signOut: async () => {
+      setAuthStatus('unauthenticated');
+      try {
+        window.localStorage.removeItem('auth_state');
+      } catch { /* ignore */ }
+    },
+  }), []);
+
+  return (
+    <RainbowKitAuthenticationProvider adapter={authenticationAdapter} status={authStatus}>
+      <RainbowKitProvider theme={lightTheme()}>
+        <App />
+      </RainbowKitProvider>
+    </RainbowKitAuthenticationProvider>
+  );
+}
+
 const queryClient = new QueryClient();
 
 const rootElement = document.getElementById('root');
@@ -53,9 +110,7 @@ if (rootElement) {
     <ErrorBoundary>
       <WagmiProvider config={wagmiConfig}>
         <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider theme={lightTheme()}>
-            <App />
-          </RainbowKitProvider>
+          <AppWithAuth />
         </QueryClientProvider>
       </WagmiProvider>
     </ErrorBoundary>,

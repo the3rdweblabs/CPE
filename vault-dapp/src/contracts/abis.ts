@@ -48,6 +48,13 @@ export const VAULT_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
+    name: 'encryptedBalance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs:  [{ name: 'user', type: 'address' }],
+    outputs: [{ name: '',     type: 'bytes32' }],
+  },
+  {
     name: 'policyEngine',
     type: 'function',
     stateMutability: 'view',
@@ -120,6 +127,13 @@ export const DAO_ABI = [
     stateMutability: 'view',
     inputs:  [],
     outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'encryptedTreasuryBalance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs:  [],
+    outputs: [{ name: '', type: 'bytes32' }],
   },
   // Events
   {
@@ -230,6 +244,36 @@ export const CPE_ABI = [
   },
 
   // Events
+  {
+    name: 'PolicyCreated',
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { indexed: true,  name: 'policyId', type: 'bytes32' },
+      { indexed: true,  name: 'admin',    type: 'address' },
+      { indexed: false, name: 'ts',       type: 'uint256' },
+    ],
+  },
+  {
+    name: 'AddressBound',
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { indexed: true,  name: 'policyId', type: 'bytes32' },
+      { indexed: true,  name: 'subject',  type: 'address' },
+      { indexed: false, name: 'ts',       type: 'uint256' },
+    ],
+  },
+  {
+    name: 'AddressUnbound',
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { indexed: true,  name: 'policyId', type: 'bytes32' },
+      { indexed: true,  name: 'subject',  type: 'address' },
+      { indexed: false, name: 'ts',       type: 'uint256' },
+    ],
+  },
   {
     name: 'PolicyFrozen',
     type: 'event',

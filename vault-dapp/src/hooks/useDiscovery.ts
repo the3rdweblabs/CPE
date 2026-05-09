@@ -3,8 +3,8 @@
 // Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
 import { useState, useCallback } from 'react';
 import { Contract, BrowserProvider } from 'ethers';
-import { ADDRESSES } from '../contracts/addresses';
-import { DAO_FACTORY_ABI, DAO_ABI } from '../contracts/abis';
+import { ADDRESSES, SEPOLIA_START_BLOCK } from '../contracts/addresses';
+import { DAO_FACTORY_ABI, DAO_ABI, CPE_ABI } from '../contracts/abis';
 
 export interface DiscoverableDAO {
   address: string;
@@ -13,8 +13,16 @@ export interface DiscoverableDAO {
   createdAt: number;
 }
 
+export interface DiscoverablePolicy {
+  id: string;
+  name: string;
+  role: 'admin' | 'subject';
+  createdAt: number;
+}
+
 export function useDiscovery() {
   const [foundDAOs, setFoundDAOs] = useState<DiscoverableDAO[]>([]);
+  const [foundPolicies, setFoundPolicies] = useState<DiscoverablePolicy[]>([]);
   const [isScanning, setIsScanning] = useState(false);
 
   const scanForDAOs = useCallback(async (userAddress: string) => {
@@ -35,7 +43,7 @@ export function useDiscovery() {
 
       // 2. Fetch all DAOCreated events to get names/timestamps
       const filter = factory.filters.DAOCreated();
-      const logs = await factory.queryFilter(filter);
+      const logs = await factory.queryFilter(filter, SEPOLIA_START_BLOCK);
       console.log('[useDiscovery] DAOCreated logs count:', logs.length);
       
       const metaMap: Record<string, { name: string; timestamp: number }> = {};
@@ -105,5 +113,67 @@ export function useDiscovery() {
     return results;
   }, []);
 
-  return { foundDAOs, isScanning, scanForDAOs };
+  const scanForPolicies = useCallback(async (userAddress: string) => {
+    if (!userAddress) return [];
+    const results: DiscoverablePolicy[] = [];
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const eth = (window as any).ethereum;
+      if (!eth) return [];
+      const provider = new BrowserProvider(eth);
+      const cpe = new Contract(ADDRESSES.ConfidentialPolicyEngine, CPE_ABI, provider);
+
+      // Query PolicyCreated events where user is the admin
+      const createdFilter = cpe.filters.PolicyCreated(null, userAddress);
+      const createdLogs = await cpe.queryFilter(createdFilter, SEPOLIA_START_BLOCK);
+      
+      // Query AddressBound events where user is the subject
+      const boundFilter = cpe.filters.AddressBound(null, userAddress);
+      const boundLogs = await cpe.queryFilter(boundFilter, SEPOLIA_START_BLOCK);
+
+      const policyIds = new Set<string>();
+      const roles: Record<string, 'admin' | 'subject'> = {};
+      const timestamps: Record<string, number> = {};
+
+      for (const log of createdLogs) {
+        if ('args' in log && log.args) {
+          const [pid, , ts] = log.args;
+          const pidStr = String(pid);
+          policyIds.add(pidStr);
+          roles[pidStr] = 'admin';
+          timestamps[pidStr] = Number(ts) * 1000;
+        }
+      }
+
+      for (const log of boundLogs) {
+        if ('args' in log && log.args) {
+          const [pid, , ts] = log.args;
+          const pidStr = String(pid);
+          policyIds.add(pidStr);
+          if (roles[pidStr] !== 'admin') {
+            roles[pidStr] = 'subject';
+          }
+          timestamps[pidStr] = Number(ts) * 1000;
+        }
+      }
+
+      for (const pid of policyIds) {
+        const savedName = window.localStorage.getItem(`policyName:${pid.toLowerCase()}`);
+        const name = savedName || `Policy ${pid.slice(0, 10)}...`;
+        results.push({
+          id: pid,
+          name,
+          role: roles[pid],
+          createdAt: timestamps[pid] || Date.now(),
+        });
+      }
+
+      setFoundPolicies(results);
+    } catch (e) {
+      console.error('[useDiscovery] scanForPolicies failed:', e);
+    }
+    return results;
+  }, []);
+
+  return { foundDAOs, foundPolicies, isScanning, scanForDAOs, scanForPolicies };
 }

@@ -9,20 +9,21 @@
  */
 export const ADDRESSES = {
   ConfidentialVault:
-    import.meta.env.VITE_ADDR_VAULT     ?? '0xE72FccA450A9a0e4EBC1e61A38DC31c481Cff98c',
+    import.meta.env.VITE_ADDR_VAULT     ?? '0xE2F5a96D3C2901085B4106fff07c7A39D88C06D1',
   ConfidentialPolicyEngine:
-    import.meta.env.VITE_ADDR_CPE       ?? '0x7843ACB0d148e8D5d914ab6c040C50e4eE115d39',
+    import.meta.env.VITE_ADDR_CPE       ?? '0x83Cf96bcfDaD84ee0c0B222Ee9BcE89DfE41C59c',
   CPEGateway:
-    import.meta.env.VITE_ADDR_GATEWAY   ?? '0x69cc375f1f0F65234fD1309442516BdBd6043429',
+    import.meta.env.VITE_ADDR_GATEWAY   ?? '0x78FBB8A0134f189DD016C7F778f44b1ecbe7AAb6',
   PolicyRegistry:
-    import.meta.env.VITE_ADDR_REGISTRY  ?? '0x6FFBDcFF78B4C9828d3B31b5EEbf13644DEf210d',
+    import.meta.env.VITE_ADDR_REGISTRY  ?? '0xB0B2a558975be15B145E3451d8A16227CcFf914B',
   AuditLogger:
-    import.meta.env.VITE_ADDR_LOGGER    ?? '0xfA0DD0a1Ba7C6C0FaD50fb22961c9AB0db88b614',
+    import.meta.env.VITE_ADDR_LOGGER    ?? '0x4574d5F4a25AD9231f2a8Cb9454737DAd3461Db3',
   ConfidentialDAO:
-    import.meta.env.VITE_ADDR_DAO       ?? '0x55112E95366721b709Afc8fA343747EEf6c3a2ca',
+    import.meta.env.VITE_ADDR_DAO       ?? '0xfeE66FEAe898CBb241d55dAb6526c1b43c068237',
   DAOFactory:
-    import.meta.env.VITE_ADDR_FACTORY   ?? '0x17493E2Cab0676F50b6aB0b3436de6e47F0E47C3',
+    import.meta.env.VITE_ADDR_FACTORY   ?? '0xAa3Fe2eFaFC2EFBB8019B9255Cf8A5136563635D',
 } as const;
 
 export const SEPOLIA_CHAIN_ID = 11155111;
 export const SEPOLIA_EXPLORER = 'https://sepolia.etherscan.io';
+export const SEPOLIA_START_BLOCK = 10700000;

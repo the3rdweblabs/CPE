@@ -13,7 +13,7 @@
  */
 import { useState, useCallback, useRef } from 'react';
 import { BrowserProvider, Contract, parseEther, formatEther, solidityPackedKeccak256 } from 'ethers';
-import { ADDRESSES, SEPOLIA_EXPLORER } from '../contracts/addresses';
+import { ADDRESSES, SEPOLIA_EXPLORER, SEPOLIA_START_BLOCK } from '../contracts/addresses';
 import { VAULT_ABI, CPE_ABI, DAO_ABI, DAO_FACTORY_ABI } from '../contracts/abis';
 import type { FhevmInstance } from './useFhevm';
 
@@ -92,8 +92,8 @@ export function useVault() {
         // determine frozen state by inspecting latest freeze/unfreeze events
         let frozenFlag: boolean | null = null;
         try {
-          const frozenEvents = await cpe.queryFilter(cpe.filters.PolicyFrozen(id));
-          const unfrozenEvents = await cpe.queryFilter(cpe.filters.PolicyUnfrozen(id));
+          const frozenEvents = await cpe.queryFilter(cpe.filters.PolicyFrozen(id), SEPOLIA_START_BLOCK);
+          const unfrozenEvents = await cpe.queryFilter(cpe.filters.PolicyUnfrozen(id), SEPOLIA_START_BLOCK);
           const lastFrozen = frozenEvents.length ? frozenEvents[frozenEvents.length - 1] : null;
           const lastUnfrozen = unfrozenEvents.length ? unfrozenEvents[unfrozenEvents.length - 1] : null;
           if (lastFrozen && lastUnfrozen) {
@@ -107,7 +107,9 @@ export function useVault() {
           console.warn('could not derive frozen state from events', e);
         }
 
+        const savedName = window.localStorage.getItem(`policyName:${id.toLowerCase()}`);
         setPolicyMeta({
+          name: savedName || `Policy ${id.slice(0, 10)}...`,
           policyAdmin: meta[0],
           pendingAdmin: meta[1],
           exists: meta[2],
@@ -173,9 +175,9 @@ export function useVault() {
       }
 
       // Vault events for this user
-      const deps = await vault.queryFilter(vault.filters.Deposited(address));
-      const approved = await vault.queryFilter(vault.filters.WithdrawalApproved(address));
-      const denied = await vault.queryFilter(vault.filters.WithdrawalDenied(address));
+      const deps = await vault.queryFilter(vault.filters.Deposited(address), SEPOLIA_START_BLOCK);
+      const approved = await vault.queryFilter(vault.filters.WithdrawalApproved(address), SEPOLIA_START_BLOCK);
+      const denied = await vault.queryFilter(vault.filters.WithdrawalDenied(address), SEPOLIA_START_BLOCK);
 
       const depRecs = await Promise.all(deps.map((d: EventLike) => evToRec(d, 'Deposit', 'confirmed')));
       const apprRecs = await Promise.all(approved.map((d: EventLike) => evToRec(d, 'Withdraw Approved', 'approved')));
@@ -184,8 +186,8 @@ export function useVault() {
       records = [...records, ...depRecs, ...apprRecs, ...deniedRecs];
 
       // Address bind/unbind
-      const binds = await cpe.queryFilter(cpe.filters.AddressBound(null, address));
-      const unbinds = await cpe.queryFilter(cpe.filters.AddressUnbound(address));
+      const binds = await cpe.queryFilter(cpe.filters.AddressBound(null, address), SEPOLIA_START_BLOCK);
+      const unbinds = await cpe.queryFilter(cpe.filters.AddressUnbound(address), SEPOLIA_START_BLOCK);
       const bindRecs = await Promise.all(binds.map((d: EventLike) => evToRec(d, 'Policy Bound', 'confirmed')));
       const unbindRecs = await Promise.all(unbinds.map((d: EventLike) => evToRec(d, 'Policy Unbound', 'confirmed')));
       records = [...records, ...bindRecs, ...unbindRecs];
@@ -193,8 +195,8 @@ export function useVault() {
       // If we have a bound policy, include policy-level events
       const pid = await cpe.getPolicyForAddress(address);
       if (pid && pid !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-        const frozen = await cpe.queryFilter(cpe.filters.PolicyFrozen(pid));
-        const unfrozen = await cpe.queryFilter(cpe.filters.PolicyUnfrozen(pid));
+        const frozen = await cpe.queryFilter(cpe.filters.PolicyFrozen(pid), SEPOLIA_START_BLOCK);
+        const unfrozen = await cpe.queryFilter(cpe.filters.PolicyUnfrozen(pid), SEPOLIA_START_BLOCK);
         const fRecs = await Promise.all(frozen.map((d: EventLike) => evToRec(d, 'Policy Frozen', 'confirmed')));
         const uRecs = await Promise.all(unfrozen.map((d: EventLike) => evToRec(d, 'Policy Unfrozen', 'confirmed')));
         records = [...records, ...fRecs, ...uRecs];
@@ -389,17 +391,26 @@ export function useVault() {
   // Write: Onboard (FHE)
   const onboardUser = useCallback(async (
     userAddress: string,
+    policyName: string,
     fhevmInstance: FhevmInstance,
+    customLimits?: {
+      perTxLimit: bigint;
+      dailyLimit: bigint;
+      monthlyLimit: bigint;
+      riskTier: number;
+      complianceTier: number;
+    }
   ) => {
     resetTx();
     try {
-      // Step 1 - Generate unique policyId for demo
-      const pid = solidityPackedKeccak256(['address', 'string'], [userAddress, 'DEMO_VAULT_POLICY']);
+      // Step 1 - Generate unique policyId based on policyName
+      const pid = solidityPackedKeccak256(['string'], [policyName]);
 
-      // Default limits: 1 ETH per tx, 5 ETH daily, 10 ETH monthly (in Gwei)
-      const perTxLimit = 1_000_000_000n;
-      const dailyLimit = 5_000_000_000n;
-      const monthlyLimit = 10_000_000_000n;
+      const perTxLimit = customLimits?.perTxLimit ?? 1_000_000_000n;
+      const dailyLimit = customLimits?.dailyLimit ?? 5_000_000_000n;
+      const monthlyLimit = customLimits?.monthlyLimit ?? 10_000_000_000n;
+      const riskTier = customLimits?.riskTier ?? 1;
+      const complianceTier = customLimits?.complianceTier ?? 1;
 
       const p = getProvider();
       const signer = await p.getSigner();
@@ -413,8 +424,8 @@ export function useVault() {
       input.add64(perTxLimit);
       input.add64(dailyLimit);
       input.add64(monthlyLimit);
-      input.add8(1); // Risk Tier
-      input.add8(1); // Compliance Tier
+      input.add8(riskTier);
+      input.add8(complianceTier);
       const enc = await input.encrypt();
 
       setTxStatus('pending');
@@ -434,6 +445,10 @@ export function useVault() {
       setTxHash(tx1.hash);
       await tx1.wait();
 
+      try {
+        window.localStorage.setItem(`policyName:${pid.toLowerCase()}`, policyName);
+      } catch { /* ignore */ }
+
       // Step 3 - Bind Address
       const tx2 = await cpe.bindAddress(pid, userAddress, { gasLimit: 200_000 });
       setTxHash(tx2.hash);
@@ -444,6 +459,28 @@ export function useVault() {
         type: 'Onboard',
         hash: tx2.hash,
         etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx2.hash}`,
+        status: 'confirmed',
+        timestamp: Date.now(),
+      });
+    } catch (e: unknown) {
+      setTxStatus('error');
+      setTxError(e instanceof Error ? e.message : String(e));
+    }
+  }, [pushHistory]);
+
+  const bindAddress = useCallback(async (pid: string, subject: string) => {
+    resetTx();
+    try {
+      setTxStatus('pending');
+      const cpe = await getCPE();
+      const tx = await cpe.bindAddress(pid, subject, { gasLimit: 200_000 });
+      setTxHash(tx.hash);
+      await tx.wait();
+      setTxStatus('success');
+      pushHistory({
+        type: 'Policy Bound',
+        hash: tx.hash,
+        etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx.hash}`,
         status: 'confirmed',
         timestamp: Date.now(),
       });
@@ -564,6 +601,7 @@ export function useVault() {
     refreshBalance, refreshTreasury, refreshPolicy,
     setSelectedDAO,
     onboardUser,
+    bindAddress,
     deposit, withdraw, daoDeposit, daoWithdraw, compliantTransfer,
     freezePolicy, unfreezePolicy,
     createDAO,
