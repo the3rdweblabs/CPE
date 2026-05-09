@@ -31,6 +31,7 @@ contract ConfidentialVault is ZamaEthereumConfig {
     ICPEGateway public immutable policyEngine;
 
     mapping(address => uint256) public balances;
+    mapping(address => euint64) private _encryptedBalances;
 
     event Deposited(address indexed user, uint256 amount);
     event WithdrawalApproved(address indexed user);
@@ -42,10 +43,23 @@ contract ConfidentialVault is ZamaEthereumConfig {
     }
 
     /**
+     * @notice Get encrypted balance handle for a user.
+     */
+    function encryptedBalance(address user) external view returns (euint64) {
+        return _encryptedBalances[user];
+    }
+
+    /**
      * @notice Deposit ETH into the vault. No policy check is performed for deposits.
      */
     function deposit() external payable {
         balances[msg.sender] += msg.value;
+
+        euint64 encAmount = FHE.asEuint64(uint64(msg.value));
+        _encryptedBalances[msg.sender] = FHE.add(_encryptedBalances[msg.sender], encAmount);
+        FHE.allowThis(_encryptedBalances[msg.sender]);
+        FHE.allow(_encryptedBalances[msg.sender], msg.sender);
+
         emit Deposited(msg.sender, msg.value);
     }
 

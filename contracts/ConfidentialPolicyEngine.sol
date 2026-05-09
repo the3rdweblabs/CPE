@@ -5,6 +5,8 @@ pragma solidity ^0.8.24;
 
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import "@fhevm/solidity/lib/FHE.sol";
+import "./interfaces/IPolicyRegistry.sol";
+import "./interfaces/IAuditLogger.sol";
 
 /**
  * @title  ConfidentialPolicyEngine
@@ -116,6 +118,10 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
 
     /// @dev deployer / engine owner
     address public owner;
+
+    /// @dev on-chain policy registry and audit logger addresses
+    address public policyRegistry;
+    address public auditLogger;
 
     // Custom errors
 
@@ -261,6 +267,9 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
         });
 
         emit PolicyCreated(policyId, msg.sender, block.timestamp);
+        if (auditLogger != address(0)) {
+            IAuditLogger(auditLogger).logEvent(policyId, address(0), 3); // 3 = POLICY_CREATED
+        }
     }
 
     // Policy updates
@@ -415,6 +424,9 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
         _policies[policyId].updatedAt = block.timestamp;
 
         emit PolicyFrozen(policyId, block.timestamp);
+        if (auditLogger != address(0)) {
+            IAuditLogger(auditLogger).logEvent(policyId, address(0), 1); // 1 = FREEZE
+        }
     }
 
     /**
@@ -431,6 +443,9 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
         _policies[policyId].updatedAt = block.timestamp;
 
         emit PolicyUnfrozen(policyId, block.timestamp);
+        if (auditLogger != address(0)) {
+            IAuditLogger(auditLogger).logEvent(policyId, address(0), 2); // 2 = UNFREEZE
+        }
     }
 
     // Address binding
@@ -451,6 +466,9 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
      */
     function bindAddress(bytes32 policyId, address subject) external onlyPolicyAdmin(policyId) policyExists(policyId) {
         _addressPolicy[subject] = policyId;
+        if (policyRegistry != address(0)) {
+            IPolicyRegistry(policyRegistry).bindAddress(policyId, subject);
+        }
         emit AddressBound(policyId, subject, block.timestamp);
     }
 
@@ -466,6 +484,9 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
         if (_policies[policyId].policyAdmin != msg.sender) revert NotPolicyAdmin();
 
         delete _addressPolicy[subject];
+        if (policyRegistry != address(0)) {
+            IPolicyRegistry(policyRegistry).unbindAddress(subject);
+        }
         emit AddressUnbound(policyId, subject, block.timestamp);
     }
 
@@ -567,6 +588,13 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
         FHE.allowTransient(approved, msg.sender);
 
         emit PolicyEvaluated(policyId, subject, block.timestamp);
+
+        if (auditLogger != address(0)) {
+            FHE.allow(amount, auditLogger);
+            FHE.allow(p.riskTier, auditLogger);
+            FHE.allow(approved, auditLogger);
+            IAuditLogger(auditLogger).logEvaluation(policyId, subject, amount, p.riskTier, approved);
+        }
 
         return approved;
     }
@@ -678,6 +706,20 @@ contract ConfidentialPolicyEngine is ZamaEthereumConfig {
     function revokeCaller(address caller) external onlyOwner {
         _authorizedCallers[caller] = false;
         emit CallerRevoked(caller);
+    }
+
+    /**
+     * @notice Set the on-chain Policy Registry contract address.
+     */
+    function setPolicyRegistry(address _registry) external onlyOwner {
+        policyRegistry = _registry;
+    }
+
+    /**
+     * @notice Set the on-chain Audit Logger contract address.
+     */
+    function setAuditLogger(address _logger) external onlyOwner {
+        auditLogger = _logger;
     }
 
     // ADMIN TRANSFER (2-STEP)

@@ -1,20 +1,30 @@
-CPE main  ? ❯ 
+CPE main  ? ❯ npx hardhat --network sepolia task:wallet
+Wallet Address: 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+Sepolia Balance: 0.071958385162547811 ETH
 
-
-
-CPE main  ? ❯ npx hardhat --network sepolia task:create-policy --name "master-demo"
+CPE main  ? ❯ npx hardhat --network sepolia task:create-policy --name "my-policy"
+Creating policy: my-policy
+PolicyId: 0xd595f4f71b9acbd674a057f984a4d3e95a63a27b59595e0d584c7353701e4cea
+Admin: 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
 Generating encrypted policy inputs...
-Policy ID: 0xf879e6231f9a158bff069aa2385f74966ccb9fc87e05d66735c8e46bbd474335
-✓ Policy created successfully
+Estimated gas for createPolicy: 1446946
+✓ Policy created successfully!
+  Gas used: 1195137
+  Tx hash : 0x6b8e27de4dc9b21e2327c65a7d99dea2d054607de50586b9d7a23d6ad0bb4606
+  Etherscan: https://sepolia.etherscan.io/tx/0x6b8e27de4dc9b21e2327c65a7d99dea2d054607de50586b9d7a23d6ad0bb4606
+
+CPE main  ? ❯ npx hardhat --network sepolia task:policy-info --address "0x9582f3b9daEE79697DdDca02a411f9632E4c95eA"
+Subject: 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+Has Active Policy: NO
+
+CPE main  ? ❯ npx hardhat --network sepolia task:bind-address --name "my-policy"
+Binding 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA to policy my-policy...
+✓ Address bound successfully
 
 CPE main  ? ❯ npx hardhat --network sepolia task:policy-info --address "0x9582f3b9daEE79697DdDca02a411f9632E4c95eA"
 Subject: 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
 Has Active Policy: YES
-Policy ID: 0xf879e6231f9a158bff069aa2385f74966ccb9fc87e05d66735c8e46bbd474335
-
-CPE main  ? ❯ npx hardhat --network sepolia task:bind-address --name "master-demo"
-Binding 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA to policy master-demo...
-✓ Address bound successfully
+Policy ID: 0xd595f4f71b9acbd674a057f984a4d3e95a63a27b59595e0d584c7353701e4cea
 
 CPE main  ? ❯ npx hardhat --network sepolia task:deposit --amount "0.05"
 Depositing 0.05 ETH to vault...
@@ -22,8 +32,8 @@ Depositing 0.05 ETH to vault...
 
 CPE main  ? ❯ npx hardhat --network sepolia task:withdraw --amount "0.01"
 Withdraw debug:
-  CPE address   : 0x7843ACB0d148e8D5d914ab6c040C50e4eE115d39
-  Vault address : 0xE72FccA450A9a0e4EBC1e61A38DC31c481Cff98c
+  CPE address   : 0x83Cf96bcfDaD84ee0c0B222Ee9BcE89DfE41C59c
+  Vault address : 0xE2F5a96D3C2901085B4106fff07c7A39D88C06D1
   Signer        : 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
   Amount (ETH)  : 0.01
   Amount (Wei)  : 10000000000000000
@@ -31,41 +41,84 @@ Withdraw debug:
 Encrypting withdrawal amount (for Vault verifier)...
 Submitting withdrawal...
 ✓ Withdrawal APPROVED — policy passed!
-  Gas used: 771471
-  Tx hash : 0x468b4abf67448ffa1bd902c6112a0ad7e03ae59ef0cace6d58484bc91fe5d8e1
-  Etherscan: https://sepolia.etherscan.io/tx/0x468b4abf67448ffa1bd902c6112a0ad7e03ae59ef0cace6d58484bc91fe5d8e1
+  Gas used: 1199528
+  Tx hash : 0xe22ab51edcda48378e73fedfb2f712e5af22b9c0f579b75200a0a2f05943d94a
+  Etherscan: https://sepolia.etherscan.io/tx/0xe22ab51edcda48378e73fedfb2f712e5af22b9c0f579b75200a0a2f05943d94a
 
-CPE main  ? ❯ npx hardhat --network sepolia task:dao-create --name "Global-Alpha-DAO"
-Creating DAO: Global-Alpha-DAO...
-✓ DAO Created successfully!
-DAO Address: 0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10
-
-NEXT STEP: Run 'task:dao-add-member' and 'task:authorize-caller'!
+CPE main  ? ❯ npx hardhat --network sepolia task:withdraw --amount "2"
+Withdraw debug:
+  CPE address   : 0x83Cf96bcfDaD84ee0c0B222Ee9BcE89DfE41C59c
+  Vault address : 0xE2F5a96D3C2901085B4106fff07c7A39D88C06D1
+  Signer        : 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Amount (ETH)  : 2
+  Amount (Wei)  : 2000000000000000000
+  Amount (Gwei) : 2000000000
+Encrypting withdrawal amount (for Vault verifier)...
+Submitting withdrawal...
+✗ Withdrawal DENIED by Policy Engine (Limits or Freeze active)
 
 CPE main  ? ❯ npx hardhat --network sepolia task:authorize-caller --address "0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10"
 Authorizing caller: 0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10
 ✓ Caller authorized in CPE
 
-CPE main  ? ❯ npx hardhat --network sepolia task:dao-add-member --dao "0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10" --member "0x9582f3b9daEE79697DdDca02a411f9632E4c95eA"
-Adding member 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA to DAO 0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10...
+CPE main  ? ❯ npx hardhat --network sepolia task:dao-add-member --dao "0xfeE66FEAe898CBb241d55dAb6526c1b43c068237" --member "0x9582f3b9daEE79697DdDca02a411f9632E4c95eA"
+Adding member 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA to DAO 0xfeE66FEAe898CBb241d55dAb6526c1b43c068237...
 ✓ Member added to DAO whitelist
 
-CPE main  ? ❯ npx hardhat --network sepolia task:dao-deposit --dao "0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10" --amount "0.05"
-Depositing 0.05 ETH to DAO treasury...
+CPE main  ? ❯ npx hardhat --network sepolia task:dao-deposit --dao "0xfeE66FEAe898CBb241d55dAb6526c1b43c068237" --amount "0.01"
+Depositing 0.01 ETH to DAO treasury...
 ✓ Shared deposit successful
 
-CPE main  ? ❯ npx hardhat --network sepolia task:register-gateway-caller --address "0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10" --name "Global-Alpha-DAO"
-Registering Global-Alpha-DAO (0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10) in Gateway...
+CPE main  ? ❯ npx hardhat --network sepolia task:dao-withdraw --dao "0xfeE66FEAe898CBb241d55dAb6526c1b43c068237" --amount "0.01"
+DAO Withdraw debug:
+  DAO address   : 0xfeE66FEAe898CBb241d55dAb6526c1b43c068237
+  Signer        : 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Amount (ETH)  : 0.01
+  Amount (Wei)  : 10000000000000000
+  Amount (Gwei) : 10000000
+Requesting shared withdrawal of 0.01 ETH from DAO...
+✓ Shared Withdrawal APPROVED (Member Policy Passed)
+  Gas used: 1158996
+  Tx hash : 0x3916c3aaab7101a72ffcca879f09e4d3deab70fc83cf8399adfd628df88438d2
+
+# Deploy a Brand-New Custom DAO (Factory Model)
+CPE main  ? ❯ npx hardhat --network sepolia task:dao-create --name "Institutional Alpha"
+Creating DAO: Institutional Alpha...
+✓ DAO Created successfully!
+DAO Address: 0x74638Ad188c03b0772f5f755c4647FC0828FcA21
+
+NEXT STEP: Run 'task:dao-add-member' and 'task:authorize-caller'!
+
+CPE main  ? ❯ npx hardhat --network sepolia task:authorize-caller --address "0x74638Ad188c03b0772f5f755c4647FC0828FcA21"
+Authorizing caller: 0x74638Ad188c03b0772f5f755c4647FC0828FcA21
+✓ Caller authorized in CPE
+
+CPE main  ? ❯ npx hardhat --network sepolia task:register-gateway-caller --address "0x74638Ad188c03b0772f5f755c4647FC0828FcA21" --name "Alpha-DAO"
+Registering Alpha-DAO (0x74638Ad188c03b0772f5f755c4647FC0828FcA21) in Gateway...
 ✓ Caller registered in Gateway
 
-CPE main  ? ❯ npx hardhat --network sepolia task:dao-withdraw --dao "0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10" --amount "0.01"
+CPE main  ? ❯ npx hardhat --network sepolia task:dao-add-member --dao "0x74638Ad188c03b0772f5f755c4647FC0828FcA21" --member "0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+"
+Adding member 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA to DAO 0x74638Ad188c03b0772f5f755c4647FC0828FcA21...
+✓ Member added to DAO whitelist
+
+CPE main  ? ❯ npx hardhat --network sepolia task:dao-deposit --dao "0x74638Ad188c03b0772f5f755c4647FC0828FcA21" --amount "0.01"
+Depositing 0.01 ETH to DAO treasury...
+✓ Shared deposit successful
+
+CPE main  ? ❯ npx hardhat --network sepolia task:dao-deposit --dao "0x74638Ad188c03b0772f5f755c4647FC0828FcA21" --amount "0.01"
+Depositing 0.01 ETH to DAO treasury...
+✓ Shared deposit successful
+
+CPE main  ? ❯ npx hardhat --network sepolia task:dao-withdraw --dao "0x74638Ad188c0
+3b0772f5f755c4647FC0828FcA21" --amount "0.01"
+DAO Withdraw debug:
+  DAO address   : 0x74638Ad188c03b0772f5f755c4647FC0828FcA21
+  Signer        : 0x9582f3b9daEE79697DdDca02a411f9632E4c95eA
+  Amount (ETH)  : 0.01
+  Amount (Wei)  : 10000000000000000
+  Amount (Gwei) : 10000000
 Requesting shared withdrawal of 0.01 ETH from DAO...
-Transaction Hash: 0x653bee913501832cc6bac62f7ccce0dd254f20d860a5f553a5dfc9f4860b9287
-✓ Shared Withdrawal successful (Member Policy Approved)
-
-CPE main  ? ❯ npx hardhat --network sepolia task:dao-withdraw --dao "0x86A22f6F3DBbdDc76d585f49bBAc79AC6B6B4F10" --amount "0.03"
-Requesting shared withdrawal of 0.03 ETH from DAO...
-Transaction Hash: 0x55c4c6abc37627c5f80d3b6dca32c17c1299bb892277aea04723221ec3754f12
-✓ Shared Withdrawal successful (Member Policy Approved)
-
-CPE main  ? ❯ 
+✓ Shared Withdrawal APPROVED (Member Policy Passed)
+  Gas used: 1158972
+  Tx hash : 0x2f998628ccbf33135b6d55654835792a75dc3be017bf6f9505fe57d6c9e65fae

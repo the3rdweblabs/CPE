@@ -23,6 +23,7 @@ contract ConfidentialDAO is ZamaEthereumConfig {
     
     // Total ETH in the shared treasury
     uint256 public treasuryBalance;
+    euint64 private _encryptedTreasuryBalance;
 
     mapping(address => bool) public isMember;
 
@@ -44,6 +45,13 @@ contract ConfidentialDAO is ZamaEthereumConfig {
     }
 
     /**
+     * @notice Get encrypted treasury balance handle.
+     */
+    function encryptedTreasuryBalance() external view returns (euint64) {
+        return _encryptedTreasuryBalance;
+    }
+
+    /**
      * @notice Deposit ETH into the shared DAO treasury.
      */
     function addMember(address _member) external onlyOwner {
@@ -58,6 +66,11 @@ contract ConfidentialDAO is ZamaEthereumConfig {
 
     function deposit() external payable {
         treasuryBalance += msg.value;
+
+        euint64 encAmount = FHE.asEuint64(uint64(msg.value));
+        _encryptedTreasuryBalance = FHE.add(_encryptedTreasuryBalance, encAmount);
+        FHE.allowThis(_encryptedTreasuryBalance);
+        
         emit Deposited(msg.sender, msg.value);
     }
 

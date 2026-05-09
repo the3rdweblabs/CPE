@@ -70,6 +70,8 @@ async function main() {
 
   await (await registry.authorizeWriter(cpeAddr)).wait();
   await (await logger.authorizeLogger(cpeAddr)).wait();
+  await (await cpe.setPolicyRegistry(registryAddr)).wait();
+  await (await cpe.setAuditLogger(loggerAddr)).wait();
   await (await cpe.authorizeCaller(gatewayAddr)).wait();
   
   // Register Vault in Gateway

@@ -8,16 +8,16 @@ The codebase is organized into **Core Protocol** and **Example Integrations**:
 
 ```bash
 contracts/
-├── ConfidentialPolicyEngine.sol  # Main logic: rule evaluation & access control
+├── ConfidentialPolicyEngine.sol  # Main logic: rule evaluation, linkages & access control
 ├── CPEGateway.sol                # Integration surface for downstream apps
-├── PolicyRegistry.sol            # On-chain storage for encrypted policy handles
-├── AuditLogger.sol               # Encrypted interaction logger (Auditor role)
-├── interfaces/                   # Standardized integration interfaces
+├── PolicyRegistry.sol            # Standalone pure Solidity address-to-policy registry
+├── AuditLogger.sol               # Standalone pure Solidity encrypted interaction logger
+├── interfaces/                   # Modular integration interfaces (IAuditLogger, IPolicyRegistry, etc.)
 ├── libraries/                    # Shared error codes and helper functions
 └── examples/                     # Illustration & Demo integrations
-    ├── ConfidentialVault.sol     # Example: FHE-gated personal withdrawal vault
-    ├── ConfidentialDAO.sol       # Example: Shared treasury with private quotas
-    └── ConfidentialDAOFactory.sol # Example: Institutional deployment engine
+    ├── ConfidentialVault.sol     # FHE-gated personal withdrawal vault + encrypted deposit tracking
+    ├── ConfidentialDAO.sol       # Shared treasury with private quotas + encrypted treasury tracking
+    └── ConfidentialDAOFactory.sol # Institutional deployment engine
 ```
 
 ---
@@ -27,6 +27,7 @@ contracts/
 ### 1. ConfidentialPolicyEngine.sol (The Core)
 - **State Storage:** Stores policy rules in encrypted state (`euint64`, `euint8`, `ebool`).
 - **Encrypted Rules:** Supports financial controls (`perTxLimit`, `dailyLimit`, `monthlyLimit`) and access controls (`riskTier`, `complianceTier`, `frozen`).
+- **On-Chain Linkages:** Automatically links and updates bindings inside the standalone `PolicyRegistry` and emits records to `AuditLogger` dynamically using secure `setPolicyRegistry` and `setAuditLogger` setters.
 - **Zero-Decryption Evaluation:** Runs evaluations entirely in ciphertext. It uses FHE operations (like `FHE.le`, `FHE.add`, `FHE.and`) to evaluate inputs without leaking plaintext data.
 - **Address Binding:** Maps user addresses to a specific `policyId`, making rules address-bound regardless of the client (MetaMask, CLI, etc.).
 
@@ -37,18 +38,21 @@ contracts/
 - **Upgradability:** Routes calls to the underlying Engine, allowing logic updates without refactoring consumer contracts.
 
 ### 3. PolicyRegistry.sol & AuditLogger.sol
-- **Registry:** Provides a centralized mapping of policy IDs to their plaintext metadata (createdAt, updatedAt, policyAdmin) to aid off-chain indexing and UI display.
-- **AuditLogger:** Employs an encrypted logging mechanism. It allows designated **Auditors** to request KMS decryption of interaction handles for compliance reviews, while keeping them hidden from the general public.
+- **Registry:** Provides a centralized mapping of policy IDs to their plaintext metadata (createdAt, updatedAt, policyAdmin) to aid off-chain indexing and UI display. Now implements `IPolicyRegistry` for automatic on-chain binder synchronization.
+- **AuditLogger:** Employs an encrypted logging mechanism implementing `IAuditLogger`. It allows designated **Auditors** to request KMS decryption of interaction handles for compliance reviews, while keeping them hidden from the general public.
 
 ---
 
 ## Example Integrations (The "Illustrations")
 
 ### 1. ConfidentialVault (Personal Security)
-An example of an individual "Swiss Bank Account." It demonstrates how a user can secure their own funds with an encrypted daily limit. If a user's keys are stolen, the attacker is limited by the encrypted policy stored in the CPE.
+An example of an individual "Swiss Bank Account." It demonstrates how a user can secure their own funds with an encrypted daily limit. 
+- **Encrypted Balance Tracking:** Converts plain ETH deposit values into ciphertext `euint64` handles via `FHE.asEuint64()` inside `deposit()` to protect personal wealth information.
+- **Policy-Gated Withdrawals:** Attacker is strictly limited by the encrypted policy stored in the CPE.
 
 ### 2. ConfidentialDAO (Institutional Treasury)
 A shared treasury model. Instead of individual balances, it uses a common pool of ETH. Members are granted **encrypted spending quotas** by the DAO Admin. 
+- **Encrypted Treasury Tracking:** Tracks shared treasury balances fully in ciphertext using `FHE.asEuint64` to prevent external parties from seeing treasury reserves.
 - **Privacy:** Members can withdraw from the treasury without the public (or other members) knowing their total spending limit.
 - **Control:** The DAO Admin can instantly freeze a member's spending power by updating their policy in the CPE.
 

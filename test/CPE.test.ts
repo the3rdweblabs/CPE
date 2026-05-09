@@ -19,9 +19,7 @@ import type { ConfidentialPolicyEngine, ConfidentialVault } from "../types";
  * On Sepolia, replace fhevm.decrypt*() with off-chain KMS decryption calls.
  */
 describe("ConfidentialPolicyEngine", function () {
-  // ─────────────────────────────────────────
   // SETUP
-  // ─────────────────────────────────────────
   let cpe: ConfidentialPolicyEngine;
   let vault: ConfidentialVault;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,9 +61,7 @@ describe("ConfidentialPolicyEngine", function () {
     POLICY_ID = ethers.keccak256(ethers.toUtf8Bytes("trading-desk-001"));
   });
 
-  // ─────────────────────────────────────────
   // HELPERS
-  // ─────────────────────────────────────────
 
   async function expectTxFailure(txPromise: Promise<unknown>) {
     try {
@@ -150,9 +146,7 @@ describe("ConfidentialPolicyEngine", function () {
       );
   }
 
-  // ─────────────────────────────────────────
   // TEST: POLICY CREATION
-  // ─────────────────────────────────────────
 
   describe("Policy Creation", function () {
     it("should create a policy with encrypted inputs", async function () {
@@ -205,9 +199,7 @@ describe("ConfidentialPolicyEngine", function () {
     });
   });
 
-  // ─────────────────────────────────────────
   // TEST: ADDRESS BINDING
-  // ─────────────────────────────────────────
 
   describe("Address Binding", function () {
     it("should bind an address to a policy", async function () {
@@ -231,14 +223,18 @@ describe("ConfidentialPolicyEngine", function () {
     });
   });
 
-  // ─────────────────────────────────────────
   // TEST: POLICY EVALUATION (core logic)
-  // ─────────────────────────────────────────
 
   describe("Policy Evaluation via Vault", function () {
     before(async function () {
       // Fund the vault with some ETH for withdrawals
       await vault.connect(subject).deposit({ value: ethers.parseEther("10") });
+    });
+
+    it("should track encrypted balances on deposit", async function () {
+      const subjectAddr = await subject.getAddress();
+      const encBal = await vault.encryptedBalance(subjectAddr);
+      expect(await fhevm.debugger.decryptEuint(5, encBal)).to.equal(ethers.parseEther("10")); // 10 ETH in Wei
     });
 
     /**
@@ -330,9 +326,7 @@ describe("ConfidentialPolicyEngine", function () {
       expect(await fhevm.debugger.decryptEbool(a5)).to.equal(false);
     });
   });
-  // ─────────────────────────────────────────
   // TEST: FREEZE / UNFREEZE
-  // ─────────────────────────────────────────
 
   describe("Freeze / Unfreeze", function () {
     it("should emit PolicyFrozen on freeze", async function () {
@@ -352,9 +346,7 @@ describe("ConfidentialPolicyEngine", function () {
     });
   });
 
-  // ─────────────────────────────────────────
   // TEST: POLICY UPDATES
-  // ─────────────────────────────────────────
 
   describe("Policy Updates", function () {
     it("should update perTxLimit and emit event", async function () {
@@ -380,9 +372,7 @@ describe("ConfidentialPolicyEngine", function () {
     });
   });
 
-  // ─────────────────────────────────────────
   // TEST: AUDITOR MANAGEMENT
-  // ─────────────────────────────────────────
 
   describe("Auditor Management", function () {
     it("should grant auditor access", async function () {
@@ -408,9 +398,7 @@ describe("ConfidentialPolicyEngine", function () {
     });
   });
 
-  // ─────────────────────────────────────────
   // TEST: ADMIN TRANSFER (2-step)
-  // ─────────────────────────────────────────
 
   describe("Admin Transfer", function () {
     let NEW_POLICY_ID: string;
@@ -460,9 +448,7 @@ describe("ConfidentialPolicyEngine", function () {
     });
   });
 
-  // ─────────────────────────────────────────
   // TEST: CALLER AUTHORIZATION
-  // ─────────────────────────────────────────
 
   describe("Caller Authorization", function () {
     it("should not allow unauthorized caller to call evaluateTransaction", async function () {
@@ -492,9 +478,52 @@ describe("ConfidentialPolicyEngine", function () {
     });
   });
 
-  // ─────────────────────────────────────────
+  // TEST: POLICY REGISTRY AND AUDIT LOGGER INTEGRATION
+
+  describe("Policy Registry and Audit Logger Integration", function () {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let registry: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let logger: any;
+
+    before(async function () {
+      const RegistryFactory = await ethers.getContractFactory("PolicyRegistry");
+      registry = await RegistryFactory.connect(owner).deploy();
+      await registry.waitForDeployment();
+
+      const LoggerFactory = await ethers.getContractFactory("AuditLogger");
+      logger = await LoggerFactory.connect(owner).deploy(ethers.ZeroAddress);
+      await logger.waitForDeployment();
+
+      // Configure CPE setters
+      await cpe.connect(owner).setPolicyRegistry(await registry.getAddress());
+      await cpe.connect(owner).setAuditLogger(await logger.getAddress());
+
+      // Authorize CPE in Registry and Logger
+      await registry.connect(owner).authorizeWriter(await cpe.getAddress());
+      await logger.connect(owner).authorizeLogger(await cpe.getAddress());
+    });
+
+    it("should write bindings to PolicyRegistry on-chain automatically", async function () {
+      const subjectAddr = await subject.getAddress();
+      await cpe.connect(admin).bindAddress(POLICY_ID, subjectAddr);
+      const boundId = await registry.getPolicyForAddress(subjectAddr);
+      expect(boundId).to.equal(POLICY_ID);
+    });
+
+    it("should allow only owner to configure registry and logger", async function () {
+      await expectTxFailure(cpe.connect(attacker).setPolicyRegistry(ethers.ZeroAddress));
+      await expectTxFailure(cpe.connect(attacker).setAuditLogger(ethers.ZeroAddress));
+    });
+
+    after(async function () {
+      // Revert back to zero addresses to avoid side effects
+      await cpe.connect(owner).setPolicyRegistry(ethers.ZeroAddress);
+      await cpe.connect(owner).setAuditLogger(ethers.ZeroAddress);
+    });
+  });
+
   // TEST: COMPLIANCE CHECK
-  // ─────────────────────────────────────────
 
   describe("Compliance Evaluation", function () {
     it("should pass compliance check for sufficient tier", async function () {

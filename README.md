@@ -83,13 +83,17 @@ CPE/
 │   └── settings.json                         # Workspace formatting & editor settings
 ├── contracts/
 │   ├── examples/                             # Illustration & Demo integrations
-│   │   ├── ConfidentialVault.sol             # Example: FHE-gated personal withdrawal vault
-│   │   ├── ConfidentialDAO.sol               # Example: Shared treasury with private quotas
-│   │   └── ConfidentialDAOFactory.sol        # Example: Institutional deployment engine
+│   │   ├── ConfidentialVault.sol             # FHE-gated personal withdrawal vault + encrypted deposit tracking
+│   │   ├── ConfidentialDAO.sol               # Shared treasury with private quotas + encrypted treasury tracking
+│   │   └── ConfidentialDAOFactory.sol        # Institutional deployment engine
 │   ├── interfaces/                           # Standardized integration interfaces
+│   │   ├── IAuditLogger.sol                  # Modular logging interface
+│   │   ├── ICPEGateway.sol                   # Gateway routing interface
+│   │   ├── IConfidentialPolicyEngine.sol     # Core policy engine interface
+│   │   └── IPolicyRegistry.sol               # Address registry interface
 │   ├── libraries/                            # Shared error codes and helper functions
 │   ├── AuditLogger.sol                       # Encrypted interaction logger (Auditor role)
-│   ├── ConfidentialPolicyEngine.sol          # Main logic: rule evaluation and access control
+│   ├── ConfidentialPolicyEngine.sol          # Main logic: rule evaluation, linkages & access control
 │   ├── CPEGateway.sol                        # Integration surface for downstream apps
 │   ├── PolicyRegistry.sol                    # On-chain storage for encrypted policy handles
 │   └── mocks/

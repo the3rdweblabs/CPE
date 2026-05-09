@@ -116,6 +116,10 @@ describe("Confidential DAO & Factory", function () {
 
       // Balance on contract should also match
       expect(await ethers.provider.getBalance(daoAddr)).to.equal(TEN_ETH);
+
+      // Verify encrypted treasury balance in Gwei
+      const encBal = await dao.encryptedTreasuryBalance();
+      expect(await fhevm.debugger.decryptEuint(5, encBal)).to.equal(TEN_ETH);
     });
 
     it("should deny withdrawal for a non-member", async function () {

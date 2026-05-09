@@ -1,9 +1,4 @@
-CPE main  ? ❯ npm run deploy:sepolia
-
-> confidential-policy-engine@1.0.0 deploy:sepolia
-> hardhat run deploy/01_deploy_cpe.ts --network sepolia
-
-Compiled 8 Solidity files successfully (evm target: cancun).
+CPE main  ? ❯ npx hardhat run deploy/01_deploy_cpe.ts --network sepolia
 
 ═══════════════════════════════════════════════════════
   Confidential Policy Engine - Full Stack Deployment
@@ -15,40 +10,31 @@ Compiled 8 Solidity files successfully (evm target: cancun).
 1. Deploying Core Protocol...
 
 2. Deploying Example Integrations...
-    ✓ Vault:   0xE72FccA450A9a0e4EBC1e61A38DC31c481Cff98c
-    ✓ Factory: 0x17493E2Cab0676F50b6aB0b3436de6e47F0E47C3
-    ✓ Demo DAO: 0x55112E95366721b709Afc8fA343747EEf6c3a2ca
+    ✓ Vault:   0xE2F5a96D3C2901085B4106fff07c7A39D88C06D1
+    ✓ Factory: 0xAa3Fe2eFaFC2EFBB8019B9255Cf8A5136563635D
+    ✓ Demo DAO: 0xfeE66FEAe898CBb241d55dAb6526c1b43c068237
 
 3. Wiring Infrastructure...
 
 ═══════════════════════════════════════════════════════
   Deployment Complete
 ═══════════════════════════════════════════════════════
-  PolicyRegistry            : 0x6FFBDcFF78B4C9828d3B31b5EEbf13644DEf210d
-  AuditLogger               : 0xfA0DD0a1Ba7C6C0FaD50fb22961c9AB0db88b614
-  ConfidentialPolicyEngine  : 0x7843ACB0d148e8D5d914ab6c040C50e4eE115d39
-  CPEGateway                : 0x69cc375f1f0F65234fD1309442516BdBd6043429
-  ConfidentialVault         : 0xE72FccA450A9a0e4EBC1e61A38DC31c481Cff98c
-  ConfidentialDAOFactory    : 0x17493E2Cab0676F50b6aB0b3436de6e47F0E47C3
-  ConfidentialDAO           : 0x55112E95366721b709Afc8fA343747EEf6c3a2ca
+  PolicyRegistry            : 0xB0B2a558975be15B145E3451d8A16227CcFf914B
+  AuditLogger               : 0x4574d5F4a25AD9231f2a8Cb9454737DAd3461Db3
+  ConfidentialPolicyEngine  : 0x83Cf96bcfDaD84ee0c0B222Ee9BcE89DfE41C59c
+  CPEGateway                : 0x78FBB8A0134f189DD016C7F778f44b1ecbe7AAb6
+  ConfidentialVault         : 0xE2F5a96D3C2901085B4106fff07c7A39D88C06D1
+  ConfidentialDAOFactory    : 0xAa3Fe2eFaFC2EFBB8019B9255Cf8A5136563635D
+  ConfidentialDAO           : 0xfeE66FEAe898CBb241d55dAb6526c1b43c068237
 
   Saved: ./deploy/deployments.sepolia.json
 ═══════════════════════════════════════════════════════
 
 Waiting 30s for Etherscan indexing...
-[WARNING] Network and explorer-specific api keys are deprecated in favour of the new Etherscan v2 api. Support for v1 is expected to end by May 31st, 2025. To migrate, please specify a single Etherscan.io api key the apiKey config value.
-    ~ Failed to verify: 0x6FFBDcFF78B4C9828d3B31b5EEbf13644DEf210d
-[WARNING] Network and explorer-specific api keys are deprecated in favour of the new Etherscan v2 api. Support for v1 is expected to end by May 31st, 2025. To migrate, please specify a single Etherscan.io api key the apiKey config value.
-    ~ Failed to verify: 0xfA0DD0a1Ba7C6C0FaD50fb22961c9AB0db88b614
-[WARNING] Network and explorer-specific api keys are deprecated in favour of the new Etherscan v2 api. Support for v1 is expected to end by May 31st, 2025. To migrate, please specify a single Etherscan.io api key the apiKey config value.
-    ~ Failed to verify: 0x7843ACB0d148e8D5d914ab6c040C50e4eE115d39
-[WARNING] Network and explorer-specific api keys are deprecated in favour of the new Etherscan v2 api. Support for v1 is expected to end by May 31st, 2025. To migrate, please specify a single Etherscan.io api key the apiKey config value.
-    ~ Failed to verify: 0x69cc375f1f0F65234fD1309442516BdBd6043429
-[WARNING] Network and explorer-specific api keys are deprecated in favour of the new Etherscan v2 api. Support for v1 is expected to end by May 31st, 2025. To migrate, please specify a single Etherscan.io api key the apiKey config value.
-    ~ Failed to verify: 0xE72FccA450A9a0e4EBC1e61A38DC31c481Cff98c
-[WARNING] Network and explorer-specific api keys are deprecated in favour of the new Etherscan v2 api. Support for v1 is expected to end by May 31st, 2025. To migrate, please specify a single Etherscan.io api key the apiKey config value.
-    ~ Failed to verify: 0x17493E2Cab0676F50b6aB0b3436de6e47F0E47C3
-[WARNING] Network and explorer-specific api keys are deprecated in favour of the new Etherscan v2 api. Support for v1 is expected to end by May 31st, 2025. To migrate, please specify a single Etherscan.io api key the apiKey config value.
-    ~ Failed to verify: 0x55112E95366721b709Afc8fA343747EEf6c3a2ca
-
-CPE main  ? ❯ 
+    ~ Failed to verify: 0xB0B2a558975be15B145E3451d8A16227CcFf914B
+    ~ Failed to verify: 0x4574d5F4a25AD9231f2a8Cb9454737DAd3461Db3
+    ~ Failed to verify: 0x83Cf96bcfDaD84ee0c0B222Ee9BcE89DfE41C59c
+    ~ Failed to verify: 0x78FBB8A0134f189DD016C7F778f44b1ecbe7AAb6
+    ~ Failed to verify: 0xE2F5a96D3C2901085B4106fff07c7A39D88C06D1
+    ~ Failed to verify: 0xAa3Fe2eFaFC2EFBB8019B9255Cf8A5136563635D
+    ~ Failed to verify: 0xfeE66FEAe898CBb241d55dAb6526c1b43c068237
