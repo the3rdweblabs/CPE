@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 // Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
 // Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
+import { useState, useEffect } from 'react';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { SEPOLIA_CHAIN_ID } from '../contracts/addresses';
@@ -18,10 +19,35 @@ export default function VaultPage() {
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
-  const isWrongNetwork = isConnected && chainId !== SEPOLIA_CHAIN_ID;
 
-  /* Not connected: show vault landing */
-  if (!isConnected) {
+  const [isUserAuthenticated, setIsUserAuthenticated] = useState(() => {
+    try {
+      return window.localStorage.getItem('auth_state') === 'authenticated';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleAuthChange = () => {
+      try {
+        setIsUserAuthenticated(window.localStorage.getItem('auth_state') === 'authenticated');
+      } catch {
+        setIsUserAuthenticated(false);
+      }
+    };
+    window.addEventListener('auth_change', handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+    return () => {
+      window.removeEventListener('auth_change', handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, []);
+
+  const isWrongNetwork = isConnected && isUserAuthenticated && chainId !== SEPOLIA_CHAIN_ID;
+
+  /* Not connected or not SIWE authenticated: show vault landing */
+  if (!isConnected || !isUserAuthenticated) {
     return (
       <div className="vault-landing fade-up">
         <div className="hero__eyebrow">Live on Sepolia Testnet</div>

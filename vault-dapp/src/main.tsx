@@ -82,6 +82,7 @@ function AppWithAuth() {
       setAuthStatus('authenticated');
       try {
         window.localStorage.setItem('auth_state', 'authenticated');
+        window.dispatchEvent(new Event('auth_change'));
       } catch { /* ignore */ }
       return true;
     },
@@ -89,6 +90,7 @@ function AppWithAuth() {
       setAuthStatus('unauthenticated');
       try {
         window.localStorage.removeItem('auth_state');
+        window.dispatchEvent(new Event('auth_change'));
       } catch { /* ignore */ }
     },
   }), []);
