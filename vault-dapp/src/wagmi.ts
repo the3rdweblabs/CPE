@@ -64,7 +64,12 @@ export const wagmiConfig = createConfig({
   connectors,
   chains,
   transports: {
-    [mainnet.id]: http(),
+    [mainnet.id]: fallback([
+      ...(import.meta.env.VITE_INFURA_API_KEY ? [http(`https://mainnet.infura.io/v3/${import.meta.env.VITE_INFURA_API_KEY}`)] : []),
+      http('https://cloudflare-eth.com'),
+      http('https://eth.llamarpc.com'),
+      http(),
+    ]),
     [sepolia.id]: fallback([
       ...(import.meta.env.VITE_INFURA_API_KEY ? [http(`https://sepolia.infura.io/v3/${import.meta.env.VITE_INFURA_API_KEY}`)] : []),
       http('https://ethereum-sepolia-rpc.publicnode.com'),

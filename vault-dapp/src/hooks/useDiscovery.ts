@@ -2,9 +2,10 @@
 // Copyright (c) 2026 The3rdWebLabs (https://github.com/the3rdweblabs)
 // Author: @CYBWithFlourish (https://github.com/CYBWithFlourish)
 import { useState, useCallback } from 'react';
-import { Contract, BrowserProvider } from 'ethers';
+import { Contract } from 'ethers';
 import { ADDRESSES, SEPOLIA_START_BLOCK } from '../contracts/addresses';
 import { DAO_FACTORY_ABI, DAO_ABI, CPE_ABI } from '../contracts/abis';
+import { getReadProvider } from './useVault';
 
 export interface DiscoverableDAO {
   address: string;
@@ -31,10 +32,7 @@ export function useDiscovery() {
     const results: DiscoverableDAO[] = [];
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const eth = (window as { ethereum?: any }).ethereum;
-      if (!eth) return [];
-      const provider = new BrowserProvider(eth);
+      const provider = getReadProvider();
       const factory = new Contract(ADDRESSES.DAOFactory, DAO_FACTORY_ABI, provider);
 
       // 1. Get all DAOs deployed by factory
@@ -125,10 +123,7 @@ export function useDiscovery() {
     if (!userAddress) return [];
     const results: DiscoverablePolicy[] = [];
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const eth = (window as any).ethereum;
-      if (!eth) return [];
-      const provider = new BrowserProvider(eth);
+      const provider = getReadProvider();
       const cpe = new Contract(ADDRESSES.ConfidentialPolicyEngine, CPE_ABI, provider);
 
       // Query PolicyCreated events where user is the admin

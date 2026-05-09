@@ -12,7 +12,7 @@
  * All other operations are standard ethers calls.
  */
 import { useState, useCallback, useRef } from 'react';
-import { BrowserProvider, Contract, parseEther, formatEther, solidityPackedKeccak256 } from 'ethers';
+import { BrowserProvider, JsonRpcProvider, Contract, parseEther, formatEther, solidityPackedKeccak256 } from 'ethers';
 import { ADDRESSES, SEPOLIA_EXPLORER, SEPOLIA_START_BLOCK } from '../contracts/addresses';
 import { VAULT_ABI, CPE_ABI, DAO_ABI, DAO_FACTORY_ABI } from '../contracts/abis';
 import type { FhevmInstance } from './useFhevm';
@@ -27,21 +27,36 @@ export interface TxRecord {
   timestamp: number;
 }
 
+// Fast, reliable read provider that persists regardless of user wallet state
+export function getReadProvider() {
+  const infura = import.meta.env.VITE_INFURA_API_KEY;
+  const url = infura 
+    ? `https://sepolia.infura.io/v3/${infura}` 
+    : 'https://ethereum-sepolia-rpc.publicnode.com';
+  return new JsonRpcProvider(url);
+}
+
 export function getProvider() {
   if (!window.ethereum) throw new Error('No wallet detected');
   return new BrowserProvider(window.ethereum as ConstructorParameters<typeof BrowserProvider>[0]);
 }
 
 async function getVault(withSigner = true) {
-  const p = getProvider();
-  const runner = withSigner ? await p.getSigner() : p;
-  return new Contract(ADDRESSES.ConfidentialVault, VAULT_ABI, runner);
+  if (withSigner) {
+    const p = getProvider();
+    const signer = await p.getSigner();
+    return new Contract(ADDRESSES.ConfidentialVault, VAULT_ABI, signer);
+  }
+  return new Contract(ADDRESSES.ConfidentialVault, VAULT_ABI, getReadProvider());
 }
 
 async function getCPE(withSigner = true) {
-  const p = getProvider();
-  const runner = withSigner ? await p.getSigner() : p;
-  return new Contract(ADDRESSES.ConfidentialPolicyEngine, CPE_ABI, runner);
+  if (withSigner) {
+    const p = getProvider();
+    const signer = await p.getSigner();
+    return new Contract(ADDRESSES.ConfidentialPolicyEngine, CPE_ABI, signer);
+  }
+  return new Contract(ADDRESSES.ConfidentialPolicyEngine, CPE_ABI, getReadProvider());
 }
 
 export function useVault() {
@@ -70,7 +85,7 @@ export function useVault() {
 
   const refreshTreasury = useCallback(async () => {
     try {
-      const p = getProvider();
+      const p = getReadProvider();
       const dao = new Contract(selectedDAO, DAO_ABI, p);
       const raw = await dao.treasuryBalance();
       setDaoBalance(formatEther(raw));
