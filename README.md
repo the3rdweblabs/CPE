@@ -170,39 +170,43 @@ Expected output:
 ```
   ConfidentialPolicyEngine
     Policy Creation
-      ✔ should create a policy with encrypted inputs (70ms)
-      ✔ should emit PolicyCreated event (45ms)
-      ✔ should revert if policy already exists (129ms)
+      ✔ should create a policy with encrypted inputs (348ms)
+      ✔ should emit PolicyCreated event (141ms)
+      ✔ should revert if policy already exists
     Address Binding
       ✔ should bind an address to a policy
       ✔ should confirm hasPolicy returns true for bound address
       ✔ should confirm hasPolicy returns false for unbound address
       ✔ should only allow policy admin to bind addresses
     Policy Evaluation via Vault
-      ✔ should approve a withdrawal within policy limits (44ms)
-      ✔ should deny a withdrawal exceeding per-tx limit (62ms)
-      ✔ should deny withdrawal from address with no policy
-      ✔ should deny withdrawal from frozen policy (40ms)
-      ✔ should track rolling daily usage and enforce daily limit (186ms)
+      ✔ should track encrypted balances on deposit (45ms)
+      ✔ should approve a withdrawal within policy limits (60ms)
+      ✔ should deny a withdrawal exceeding per-tx limit (201ms)
+      ✔ should deny withdrawal from address with no policy (83ms)
+      ✔ should deny withdrawal from frozen policy (193ms)
+      ✔ should track rolling daily usage and enforce daily limit (843ms)
     Freeze / Unfreeze
       ✔ should emit PolicyFrozen on freeze
       ✔ should emit PolicyUnfrozen on unfreeze
       ✔ should only allow policy admin to freeze
     Policy Updates
-      ✔ should update perTxLimit and emit event
+      ✔ should update perTxLimit and emit event (74ms)
       ✔ should not allow non-admin to update policy
     Auditor Management
-      ✔ should grant auditor access
+      ✔ should grant auditor access (51ms)
       ✔ should revoke auditor access in mapping
       ✔ should not allow non-admin to grant auditor
     Admin Transfer
       ✔ should initiate admin transfer
       ✔ should not allow wrong address to accept transfer
-      ✔ should complete transfer when new admin accepts (42ms)
+      ✔ should complete transfer when new admin accepts
     Caller Authorization
       ✔ should not allow unauthorized caller to call evaluateTransaction
       ✔ should authorize and revoke callers
       ✔ should not allow non-owner to authorize callers
+    Policy Registry and Audit Logger Integration
+      ✔ should write bindings to PolicyRegistry on-chain automatically
+      ✔ should allow only owner to configure registry and logger
     Compliance Evaluation
       ✔ should pass compliance check for sufficient tier
       ✔ should return false for insufficient compliance tier
@@ -212,13 +216,13 @@ Expected output:
       ✔ should deploy a new DAO and set the correct owner
       ✔ should track all deployed DAOs for discovery
     DAO Treasury Operations
-      ✔ should accept deposits into the shared treasury
+      ✔ should accept deposits into the shared treasury (42ms)
       ✔ should deny withdrawal for a non-member
-      ✔ should allow a member to withdraw within their encrypted quota
+      ✔ should allow a member to withdraw within their encrypted quota (122ms)
       ✔ should deny withdrawal if member exceeds encrypted quota
 
 
-  34 passing (1s)
+  37 passing (3s)
 ```
 
 ## Step 6 - Configure for Sepolia Deployment
