@@ -8,8 +8,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { RainbowKitProvider, lightTheme, createAuthenticationAdapter, RainbowKitAuthenticationProvider } from '@rainbow-me/rainbowkit';
 import { createSiweMessage } from 'viem/siwe';
-import { useState, useMemo } from 'react';
-import { WagmiProvider } from 'wagmi';
+import { useState, useMemo, useEffect } from 'react';
+import { WagmiProvider, useAccount } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { wagmiConfig } from './wagmi';
 import App from './App';
@@ -53,14 +53,29 @@ function generateNonce() {
 }
 
 function AppWithAuth() {
-  const [authStatus, setAuthStatus] = useState<'loading' | 'unauthenticated' | 'authenticated'>(() => {
+  const { address } = useAccount();
+  const [authStatus, setAuthStatus] = useState<'loading' | 'unauthenticated' | 'authenticated'>('loading');
+
+  useEffect(() => {
     try {
       const saved = window.localStorage.getItem('auth_state');
-      return saved === 'authenticated' ? 'authenticated' : 'unauthenticated';
+      if (address && saved && saved.toLowerCase() === address.toLowerCase()) {
+        Promise.resolve().then(() => {
+          setAuthStatus('authenticated');
+        });
+      } else {
+        Promise.resolve().then(() => {
+          setAuthStatus('unauthenticated');
+          window.localStorage.removeItem('auth_state');
+          window.dispatchEvent(new Event('auth_change'));
+        });
+      }
     } catch {
-      return 'unauthenticated';
+      Promise.resolve().then(() => {
+        setAuthStatus('unauthenticated');
+      });
     }
-  });
+  }, [address]);
 
   const authenticationAdapter = useMemo(() => createAuthenticationAdapter({
     getNonce: async () => {
@@ -81,7 +96,11 @@ function AppWithAuth() {
       console.log('SIWE Signature Verified:', signature);
       setAuthStatus('authenticated');
       try {
-        window.localStorage.setItem('auth_state', 'authenticated');
+        if (address) {
+          window.localStorage.setItem('auth_state', address.toLowerCase());
+        } else {
+          window.localStorage.setItem('auth_state', 'authenticated');
+        }
         window.dispatchEvent(new Event('auth_change'));
       } catch { /* ignore */ }
       return true;
@@ -93,7 +112,7 @@ function AppWithAuth() {
         window.dispatchEvent(new Event('auth_change'));
       } catch { /* ignore */ }
     },
-  }), []);
+  }), [address]);
 
   return (
     <RainbowKitAuthenticationProvider adapter={authenticationAdapter} status={authStatus}>

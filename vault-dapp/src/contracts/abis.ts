@@ -89,6 +89,20 @@ export const VAULT_ABI = [
 export const DAO_ABI = [
   // State-changing
   {
+    name: 'addMember',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: '_member', type: 'address' }],
+    outputs: [],
+  },
+  {
+    name: 'removeMember',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: '_member', type: 'address' }],
+    outputs: [],
+  },
+  {
     name: 'deposit',
     type: 'function',
     stateMutability: 'payable',

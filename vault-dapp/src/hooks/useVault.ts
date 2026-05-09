@@ -224,7 +224,7 @@ export function useVault() {
     try {
       setTxStatus('pending');
       const vault = await getVault();
-      const tx = await vault.deposit({ value: parseEther(amountEth), gasLimit: 120_000 });
+      const tx = await vault.deposit({ value: parseEther(amountEth), gasLimit: 500_000 });
       setTxHash(tx.hash);
       await tx.wait();
       setTxStatus('success');
@@ -255,6 +255,8 @@ export function useVault() {
 
       // Step 1 - FHE encrypt (for Vault verifier)
       setTxStatus('encrypting');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const input = fhevmInstance.createEncryptedInput(
         ADDRESSES.ConfidentialVault,
         userAddress,
@@ -417,6 +419,8 @@ export function useVault() {
       const signerAddress = await signer.getAddress();
 
       setTxStatus('encrypting');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const input = fhevmInstance.createEncryptedInput(
         ADDRESSES.ConfidentialPolicyEngine,
         signerAddress,
@@ -498,7 +502,7 @@ export function useVault() {
       const p = getProvider();
       const runner = await p.getSigner();
       const dao = new Contract(selectedDAO, DAO_ABI, runner);
-      const tx = await dao.deposit({ value: parseEther(amountEth), gasLimit: 120_000 });
+      const tx = await dao.deposit({ value: parseEther(amountEth), gasLimit: 500_000 });
       setTxHash(tx.hash);
       await tx.wait();
       setTxStatus('success');
@@ -526,6 +530,8 @@ export function useVault() {
       const amountGwei = amountWei / 1_000_000_000n;
 
       setTxStatus('encrypting');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const input = fhevmInstance.createEncryptedInput(
         selectedDAO,
         userAddress,
@@ -593,6 +599,54 @@ export function useVault() {
     }
   }, [pushHistory]);
 
+  const addDAOMember = useCallback(async (member: string) => {
+    resetTx();
+    try {
+      setTxStatus('pending');
+      const p = getProvider();
+      const runner = await p.getSigner();
+      const dao = new Contract(selectedDAO, DAO_ABI, runner);
+      const tx = await dao.addMember(member, { gasLimit: 200_000 });
+      setTxHash(tx.hash);
+      await tx.wait();
+      setTxStatus('success');
+      pushHistory({
+        type: 'DAO Member Added',
+        hash: tx.hash,
+        etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx.hash}`,
+        status: 'confirmed',
+        timestamp: Date.now(),
+      });
+    } catch (e: unknown) {
+      setTxStatus('error');
+      setTxError(e instanceof Error ? e.message : String(e));
+    }
+  }, [pushHistory, selectedDAO]);
+
+  const removeDAOMember = useCallback(async (member: string) => {
+    resetTx();
+    try {
+      setTxStatus('pending');
+      const p = getProvider();
+      const runner = await p.getSigner();
+      const dao = new Contract(selectedDAO, DAO_ABI, runner);
+      const tx = await dao.removeMember(member, { gasLimit: 200_000 });
+      setTxHash(tx.hash);
+      await tx.wait();
+      setTxStatus('success');
+      pushHistory({
+        type: 'DAO Member Removed',
+        hash: tx.hash,
+        etherscanUrl: `${SEPOLIA_EXPLORER}/tx/${tx.hash}`,
+        status: 'confirmed',
+        timestamp: Date.now(),
+      });
+    } catch (e: unknown) {
+      setTxStatus('error');
+      setTxError(e instanceof Error ? e.message : String(e));
+    }
+  }, [pushHistory, selectedDAO]);
+
   return {
     // State
     balance, daoBalance, selectedDAO, hasPolicy, policyId, policyMeta,
@@ -605,6 +659,8 @@ export function useVault() {
     deposit, withdraw, daoDeposit, daoWithdraw, compliantTransfer,
     freezePolicy, unfreezePolicy,
     createDAO,
+    addDAOMember,
+    removeDAOMember,
     resetTx,
     // Persistence helpers
     loadHistory, setCurrentAddress,

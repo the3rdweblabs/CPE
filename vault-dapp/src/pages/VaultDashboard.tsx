@@ -27,6 +27,7 @@ import {
   Snowflake,
   Activity,
   RefreshCw,
+  UserPlus,
 } from 'lucide-react';
 
 /* Small shared components */
@@ -34,7 +35,7 @@ import {
 function TxBanner({ status, txHash, error }: { status: string; txHash: string | null; error: string | null }) {
   if (status === 'idle') return null;
 
-  const iconStyle = { width: 16, height: 16, display: 'inline', verticalAlign: 'middle', marginRight: 6 };
+  const iconStyle = { width: 16, height: 16, display: 'inline-block', flexShrink: 0 };
   const map: Record<string, { cls: string; icon: React.ReactNode; msg: string }> = {
     encrypting: { cls: 'encrypting', icon: <LockKeyhole style={iconStyle} aria-hidden="true" />, msg: 'FHE-encrypting your amount…' },
     pending: { cls: 'pending', icon: <Loader2 style={{ ...iconStyle, animation: 'spin 1s linear infinite' }} aria-hidden="true" />, msg: 'Transaction pending…' },
@@ -45,13 +46,13 @@ function TxBanner({ status, txHash, error }: { status: string; txHash: string | 
 
   const { cls, icon, msg } = map[status] ?? map.error;
   return (
-    <div className={`tx-banner tx-banner--${cls}`}>
-      <span style={{ display: 'flex', alignItems: 'center' }}>
-        {icon}
-        {msg}
-      </span>
+    <div className={`tx-banner tx-banner--${cls}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+        <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: '2px' }}>{icon}</span>
+        <span style={{ fontSize: '14px', lineHeight: '1.4' }}>{msg}</span>
+      </div>
       {txHash && (
-        <a href={`${SEPOLIA_EXPLORER}/tx/${txHash}`} target="_blank" rel="noreferrer">
+        <a href={`${SEPOLIA_EXPLORER}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ fontSize: '12px', width: 'fit-content' }}>
           View on Etherscan ↗
         </a>
       )}
@@ -88,6 +89,7 @@ export default function VaultDashboard() {
   // local Admin form state
   const [manageSubject, setManageSubject] = useState('');
   const [managePolicyId, setManagePolicyId] = useState('');
+  const [newMemberAddress, setNewMemberAddress] = useState('');
   const [healthStatus, setHealthStatus] = useState<Record<string, boolean>>({});
 
   // Auto-Discovery on mount
@@ -116,7 +118,7 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
-  const isBusy = vault.txStatus !== 'idle';
+  const isBusy = vault.txStatus === 'encrypting' || vault.txStatus === 'pending';
   const isAdmin = vault.policyMeta &&
     (vault.policyMeta.policyAdmin as string)?.toLowerCase() === address?.toLowerCase();
 
@@ -191,6 +193,24 @@ export default function VaultDashboard() {
     await vault.bindAddress(managePolicyId, manageSubject);
     setManageSubject('');
     setManagePolicyId('');
+  }
+
+  async function handleOnAddDAOMember() {
+    if (!newMemberAddress) return;
+    await vault.addDAOMember(newMemberAddress);
+    setNewMemberAddress('');
+    if (address) {
+      await discovery.scanForDAOs(address);
+    }
+  }
+
+  async function handleOnRemoveDAOMember() {
+    if (!newMemberAddress) return;
+    await vault.removeDAOMember(newMemberAddress);
+    setNewMemberAddress('');
+    if (address) {
+      await discovery.scanForDAOs(address);
+    }
   }
 
   async function checkHealth() {
@@ -273,7 +293,7 @@ export default function VaultDashboard() {
             )}
           </div>
 
-          {discovery.foundDAOs.length > 1 && (
+          {discovery.foundDAOs.length > 0 && (
             <div style={{ marginTop: 12 }}>
               <select
                 className="btn-sm"
@@ -397,8 +417,8 @@ export default function VaultDashboard() {
                   </select>
                 </div>
               </div>
-              <button className="btn btn-primary" onClick={handleOnboard} disabled={isBusy || !newPolicyName}>
-                Onboard & Create Policy
+              <button className="btn btn-primary" onClick={handleOnboard} disabled={isBusy || !newPolicyName || fhevm.loading || !fhevm.instance}>
+                {fhevm.loading ? 'Initializing FHE SDK...' : 'Onboard & Create Policy'}
               </button>
             </div>
           ) : (
@@ -599,6 +619,17 @@ export default function VaultDashboard() {
 
         {activeTab === 'dao' && (
           <>
+            {discovery.foundDAOs.find(d => d.address.toLowerCase() === vault.selectedDAO?.toLowerCase())?.role === 'none' && (
+              <div className="card span-2" style={{ border: '1px solid var(--error)', background: 'rgba(239, 68, 68, 0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="panel-title" style={{ color: 'var(--error)' }}><XCircle size={16} aria-hidden="true" style={{ marginRight: 6 }} />Access Restricted — Non-Member</div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Your address is <strong>not whitelisted</strong> in this Confidential DAO treasury.
+                  You can see the public balance, but any deposit or FHE-gated withdrawal will revert.
+                  Contact the DAO owner to add you as a whitelisted member, or deploy your own Confidential DAO below!
+                </p>
+              </div>
+            )}
+
             <div className="card card--accent span-2">
               <div className="panel-title"><Building2 size={16} aria-hidden="true" style={{ marginRight: 6 }} />DAO Treasury Pool</div>
               <div className="balance-val">
@@ -771,8 +802,8 @@ export default function VaultDashboard() {
                           <code style={{ fontSize: 10, color: 'var(--text-muted)' }}>{dao.address.slice(0, 14)}...</code>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span className={`badge ${dao.role === 'admin' ? 'badge-fhe' : 'badge-ok'}`} style={{ fontSize: 9 }}>
-                            {dao.role === 'admin' ? 'Admin' : 'Member'}
+                          <span className={`badge ${dao.role === 'admin' ? 'badge-fhe' : dao.role === 'member' ? 'badge-ok' : 'badge-err'}`} style={{ fontSize: 9 }}>
+                            {dao.role === 'admin' ? 'Admin' : dao.role === 'member' ? 'Member' : 'Non-Member'}
                           </span>
                           {vault.selectedDAO === dao.address ? (
                             <span className="badge badge-muted" style={{ fontSize: 9 }}>Active</span>
@@ -831,6 +862,40 @@ export default function VaultDashboard() {
               >
                 Bind Member to Policy
               </button>
+            </div>
+
+            <div className="card span-2">
+              <div className="panel-title"><UserPlus size={16} aria-hidden="true" style={{ marginRight: 6 }} />DAO Whitelist Administration</div>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                Add a new member address to the whitelist so they are authorized to deposit and withdraw from this Confidential DAO.
+              </p>
+              <div className="field">
+                <label>New Member Address</label>
+                <input
+                  placeholder="0x..."
+                  value={newMemberAddress}
+                  onChange={e => setNewMemberAddress(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                  onClick={handleOnAddDAOMember}
+                  disabled={isBusy || !newMemberAddress}
+                >
+                  Whitelist Member
+                </button>
+                <button
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                  onClick={handleOnRemoveDAOMember}
+                  disabled={isBusy || !newMemberAddress}
+                >
+                  Revoke Member
+                </button>
+              </div>
             </div>
 
             <div className="card">

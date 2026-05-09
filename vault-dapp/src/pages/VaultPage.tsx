@@ -16,13 +16,14 @@ const STEPS = [
 ];
 
 export default function VaultPage() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
 
   const [isUserAuthenticated, setIsUserAuthenticated] = useState(() => {
     try {
-      return window.localStorage.getItem('auth_state') === 'authenticated';
+      const saved = window.localStorage.getItem('auth_state');
+      return isConnected && address && saved && saved.toLowerCase() === address.toLowerCase() ? true : false;
     } catch {
       return false;
     }
@@ -31,7 +32,8 @@ export default function VaultPage() {
   useEffect(() => {
     const handleAuthChange = () => {
       try {
-        setIsUserAuthenticated(window.localStorage.getItem('auth_state') === 'authenticated');
+        const saved = window.localStorage.getItem('auth_state');
+        setIsUserAuthenticated(isConnected && address && saved && saved.toLowerCase() === address.toLowerCase() ? true : false);
       } catch {
         setIsUserAuthenticated(false);
       }
@@ -42,7 +44,7 @@ export default function VaultPage() {
       window.removeEventListener('auth_change', handleAuthChange);
       window.removeEventListener('storage', handleAuthChange);
     };
-  }, []);
+  }, [isConnected, address]);
 
   const isWrongNetwork = isConnected && isUserAuthenticated && chainId !== SEPOLIA_CHAIN_ID;
 

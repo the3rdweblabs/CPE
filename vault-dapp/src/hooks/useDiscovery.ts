@@ -93,6 +93,14 @@ export function useDiscovery() {
               createdAt: meta.timestamp 
             };
           }
+
+          // Return with role 'none' if neither owner nor member
+          return {
+            address: daoAddr,
+            role: 'none' as const,
+            name: meta.name,
+            createdAt: meta.timestamp
+          };
         } catch (e) {
           console.error(`[useDiscovery] Failed to scan DAO ${daoAddr}:`, e);
         }
